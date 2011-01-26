@@ -45,6 +45,7 @@ enum label_placement_enum {
     POINT_PLACEMENT,
     LINE_PLACEMENT,
     VERTEX_PLACEMENT,
+    INTERIOR_POINT_PLACEMENT,
     label_placement_enum_MAX
 };
 

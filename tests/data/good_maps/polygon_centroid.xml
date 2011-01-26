@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- see: http://trac.mapnik.org/changeset/574 -->
+<Map background-color="transparent" srs="+proj=longlat +ellps=airy +datum=OSGB36 +no_defs">
+
+  <FileSource name="foo">../images/</FileSource>
+  
+  <Style name="test">
+    <Rule>
+      <PolygonSymbolizer fill="green" fill-opacity="1" /> 
+      <TextSymbolizer name="[label]" face_name="DejaVu Sans Book" size="15" fill="yellow" halo_radius="1" placement="interior_point"  />
+      <TextSymbolizer name="[label]" face_name="DejaVu Sans Book" size="15" fill="red" halo_radius="1" placement="point"  />
+<!-- 
+            <ShieldSymbolizer
+             name="[label]"
+             file="../images/dummy.png"
+             face_name="DejaVu Sans Book"
+             size="10"
+             halo_radius="1"
+             allow_overlap="true"
+             avoid_edges="false"
+             placement="interior_point" 
+            />
+ -->
+
+    </Rule>  
+  </Style>
+
+  <Layer name="lay" srs="+proj=longlat +ellps=airy +datum=OSGB36 +no_defs ">
+    <StyleName>test</StyleName>
+    <Datasource>
+            <Parameter name="file">../json/polygons.json</Parameter>
+            <Parameter name="layer_by_index">0</Parameter>
+            <Parameter name="type">ogr</Parameter>
+    </Datasource>
+  </Layer>
+  
+</Map>
