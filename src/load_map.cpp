@@ -1649,7 +1649,7 @@ void map_parser::parse_building_symbolizer( rule & rule, ptree const & sym )
         if (opacity) building_sym.set_opacity(*opacity);
         // height
         optional<double> height = get_opt_attr<double>(sym, "height");
-        if (opacity) building_sym.set_height(*height);
+        if (height) building_sym.set_height(*height);
 
         parse_metawriter_in_symbolizer(building_sym, sym);
         rule.append(building_sym);
@@ -1678,6 +1678,10 @@ void map_parser::parse_raster_symbolizer( rule & rule, ptree const & sym )
         // opacity
         optional<double> opacity = get_opt_attr<double>(sym, "opacity");
         if (opacity) raster_sym.set_opacity(*opacity);
+
+        // filter factor
+        optional<double> filter_factor = get_opt_attr<double>(sym, "filter_factor");
+        if (filter_factor) raster_sym.set_filter_factor(*filter_factor);
 
         ptree::const_iterator cssIter = sym.begin();
         ptree::const_iterator endCss = sym.end();
