@@ -2,12 +2,21 @@
 
 from . import render, Map
 import math
+from foolscap.crypto import available
 
 try:
     import cairo
     HAS_PYCAIRO_MODULE = True
 except ImportError:
     HAS_PYCAIRO_MODULE = False
+
+class centering:
+    none=0
+    constrained=1
+    unconstrained=2
+    vertical=3
+    horizontal=4
+    both=5
 
 class pagesizes:
     a0 = (0.841000,1.189000)
@@ -120,80 +129,98 @@ class PDFPrinter:
                  box=None, 
                  scale=default_scale, 
                  resolution=resolutions.dpi72,
-                 preserve_aspect=True):
+                 preserve_aspect=True,
+                 centering=centering.constrained):
         self._pagesize = pagesize
         self._margin = margin
         self._box = box
         self._scale = scale
         self._resolution = resolution
         self._preserve_aspect = preserve_aspect
+        self._centering = centering
+        
+        if not preserve_aspect:
+            self._scale = any_scale
 
         if not HAS_PYCAIRO_MODULE:
             raise Exception("PDF rendering only available when pycairo is available")
     
-    def _get_render_area(self, scale=None):
+    def _get_render_area(self):
         # take off our page margins
         eff_width = self._pagesize[0]-2*self._margin
         eff_height = self._pagesize[1]-2*self._margin
         
         #then if user specified a box to render get intersection with that
         
-        #then calculate scaling so we can round to a meaningful scale
-        if scale:
-            eff_width*=scale
-            eff_height*=scale
-        
         
         return (eff_width,eff_height)
+
+    def _get_render_corner(self,render_size,m):
+        available_area = self._get_render_area()
+        map_aspect = m.envelope().width()/m.envelope().height()
+        page_aspect = available_area[0]/available_area[1]
+        
+
+        x=self._margin;
+        y=self._margin;
+        
+        # TODO: adjust for render box if provided
+        
+        h_is_contrained = map_aspect > page_aspect
+        
+        if (self._centering == centering.both or
+            self._centering == centering.horizontal or
+            (self._centering == centering.constrained and h_is_contrained) or
+            (self._centering == centering.unconstrained and not h_is_contrained)):
+            x+=(available_area[0]-render_size[0])/2
+
+        if (self._centering == centering.both or
+            self._centering == centering.vertical or
+            (self._centering == centering.constrained and not h_is_contrained) or
+            (self._centering == centering.unconstrained and h_is_contrained)):
+            y+=(available_area[1]-render_size[1])/2
+        return (x,y)
     
     def _get_map_pixel_size(self, width_page_m, height_page_m):
         return (int(m2px(width_page_m,self._resolution)), int(m2px(height_page_m,self._resolution)))
         
-    def create_map(self,srs=None):
-        (eff_width,eff_height) = self._get_map_pixel_size()
-        
-        if srs:
-            return Map(eff_width,eff_width,srs)
-        else:
-            return Map(eff_width,eff_width)
-    
     def render_map(self,m, filename):
-        s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
-        ctx=cairo.Context(s)
         
         # work out the best scale to render out map at given the available space
         (eff_width,eff_height) = self._get_render_area()
         map_aspect = m.envelope().width()/m.envelope().height()
         page_aspect = eff_width/eff_height
         
-        ctx.save()
-        ctx.translate(self._margin/pt_size,self._margin/pt_size)
-        
         scalex=m.scale()*m.width/eff_width
         scaley=m.scale()*m.height/eff_height
         
         scale=max(scalex,scaley)
 
-        rounded_mapscale=None
+        rounded_mapscale=self._scale(scale)
+        scalefactor = scale/rounded_mapscale
+        mapw=eff_width*scalefactor
+        maph=eff_height*scalefactor
         if self._preserve_aspect:
-            rounded_mapscale=self._scale(scale)
-            scalefactor = scale/rounded_mapscale
-            mapw=eff_width*scalefactor
-            maph=eff_height*scalefactor
-            
-            (nx,ny) = self._get_map_pixel_size(mapw,maph)
             if map_aspect > page_aspect:
-                m.resize(nx,nx)
+                maph=mapw
             else:
-                m.resize(ny,ny)
-        else:
-            (nx,ny) = self._get_map_pixel_size(eff_width,eff_height)
-            m.resize(nx,ny)
+                mapw=maph
+            
+        m.resize(*self._get_map_pixel_size(mapw,maph))
+        
+        (tx,ty) = self._get_render_corner((mapw,maph),m)
+        
+        s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
+        ctx=cairo.Context(s)
+        ctx.save()
+        ctx.translate(m2pt(tx),m2pt(ty))
+        #cairo defaults to 72dpi
         ctx.scale(72.0/self._resolution,72.0/self._resolution)
         render(m, ctx)
         ctx.restore()
         
-        if rounded_mapscale:
+        # dont report scale if we have warped the aspect ratio
+        if self._preserve_aspect:
             ctx.set_source_rgb(0.0, 0.0, 0.0)
             ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL,
             cairo.FONT_WEIGHT_BOLD)
