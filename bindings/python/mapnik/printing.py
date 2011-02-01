@@ -1,6 +1,20 @@
-"""Mapnik classes to assist in creating printable maps"""
+"""Mapnik classes to assist in creating printable maps
 
-from . import render, Map
+basic usage is along the lines of
+
+import mapnik2
+
+page = mapnik2.printing.PDFPrinter()
+m = mapnik2.Map(100,100)
+mapnik2.load_map(m, "my_xml_map_description", True)
+m.zoom_all()
+page.render_map(m,"my_output_file.pdf")
+
+see the documentation of mapnik2.printing.PDFPrinter() for options
+
+"""
+
+from . import render, Map, Box2d
 import math
 from foolscap.crypto import available
 
@@ -11,6 +25,16 @@ except ImportError:
     HAS_PYCAIRO_MODULE = False
 
 class centering:
+    """Style of centering to use with the map, the default is constrained
+    
+    none: map will be placed flush with the margin/box in the top left corner
+    constrained: map will be centered on the most constrained axis (for an portrait page
+                 and a square map this will be horizontally)
+    unconstrained: map will be centered on the unconstrained axis
+    vertical:
+    horizontal:
+    both:
+    """
     none=0
     constrained=1
     unconstrained=2
@@ -19,6 +43,8 @@ class centering:
     both=5
 
 class pagesizes:
+    """Some predefined page sizes custom sizes can also be passed
+    a tuple of the page width and height in meters"""
     a0 = (0.841000,1.189000)
     a0l = (1.189000,0.841000)
     b0 = (1.000000,1.414000)
@@ -90,32 +116,39 @@ class pagesizes:
     legal = (0.216,0.356)
     legall = (0.356,0.216)
 
-    
+"""size of a pt in meters"""
 pt_size=0.0254/72.0
 
 def m2pt(x):
+    """convert distance from meters to points"""
     return x/pt_size
 
 def pt2m(x):
+    """convert distance from points to meters"""
     return x*pt_size
 
 def m2in(x):
+    """convert distance from meters to inches"""
     return x/0.0254
 
 def m2px(x,resolution):
+    """convert distance from meters to pixels at the given resolution in DPI/PPI"""
     return m2in(x)*resolution
 
 class resolutions:
+    """some predefined resolutions in DPI"""
     dpi72=72
     dpi150=150
     dpi300=300
     dpi600=600
 
 def any_scale(scale):
+    """Scale helper function that allows any scale"""
     return scale
 
 _default_scale=[1,1.25,1.5,1.75,2,2.5,3,3.5,4,4.5,5,6,7.5,8,9,10]
 def default_scale(scale):
+    """Default scale helper, this rounds scale to a 'sensible' value"""
     factor = math.floor(math.log10(scale))
     norm = scale/(10**factor)
     
@@ -124,13 +157,37 @@ def default_scale(scale):
             return s*10**factor
 
 class PDFPrinter:
+    """Main class for creating PDF print outs, basically contruct an instance
+    with appropriate options and then call render_map with your mapnik map
+    """
     def __init__(self, pagesize=pagesizes.a4, 
                  margin=0.02, 
-                 box=None, 
+                 box=None,
+                 percent_box=None,
                  scale=default_scale, 
                  resolution=resolutions.dpi72,
                  preserve_aspect=True,
                  centering=centering.constrained):
+        """Creates a cairo surface and context to render a PDF with.
+        
+        pagesize: tuple of page size in meters, see predefined sizes in pagessizes class (default a4)
+        margin: page margin in meters (default 0.02)
+        box: box within the page to render the map into (will not render over margin). This should be 
+             a Mapnik Box2d object. Default is the full page within the margin
+        percent_box: as per box, but specified as a percent (0->1) of the full page size. If both box
+                     and percent_box are specified percent_box will be used.
+        scale: scale helper to use when rounding the map scale. This should be a function that
+               takes a single float and returns a float which is at least as large as the value
+               passed in. This is a 1:x scale.
+        resolution: the resolution to render non vector elements at (in DPI), defaults to 72 DPI
+        preserve_aspect: whether to preserve map aspect ratio. This defaults to True and it
+                         is recommended you do not change it unless you know what you are doing
+                         scales and so on will not work if this is False.
+        centering: Centering rules for maps where the scale rounding has reduced the map size.
+                   This should be a value from the centering class. The default is to center on the
+                   maps constrained axis, typically this will be horizontal for portrait pages and
+                   vertical for landscape pages.
+        """
         self._pagesize = pagesize
         self._margin = margin
         self._box = box
@@ -139,30 +196,46 @@ class PDFPrinter:
         self._preserve_aspect = preserve_aspect
         self._centering = centering
         
+        # don't both to round the scale if they are not preserving the aspect ratio
         if not preserve_aspect:
             self._scale = any_scale
+        
+        if percent_box:
+            self._box = Box2d(percent_box[0]*pagesize[0],percent_box[1]*pagesize[1],
+                         percent_box[2]*pagesize[0],percent_box[3]*pagesize[1])
 
         if not HAS_PYCAIRO_MODULE:
             raise Exception("PDF rendering only available when pycairo is available")
     
     def _get_render_area(self):
+        """return a bounding box with the area of the page we are allowed to render out map to
+        in page coordinates (i.e. meters)
+        """
         # take off our page margins
-        eff_width = self._pagesize[0]-2*self._margin
-        eff_height = self._pagesize[1]-2*self._margin
+        render_area = Box2d(self._margin,self._margin,self._pagesize[0]-self._margin,self._pagesize[1]-self._margin)
         
         #then if user specified a box to render get intersection with that
+        if self._box:
+            return render_area.intersect(self._box)
         
-        
-        return (eff_width,eff_height)
+        return render_area
+
+    def _get_render_area_size(self):
+        """Get the width and height (in meters) of the area we can render the map to, returned as a tuple"""
+        render_area = self._get_render_area()
+        return (render_area.width(),render_area.height())
 
     def _is_h_contrained(self,m):
-        available_area = self._get_render_area()
+        """Test if the map size is constrained on the horizontal or vertical axes"""
+        available_area = self._get_render_area_size()
         map_aspect = m.envelope().width()/m.envelope().height()
         page_aspect = available_area[0]/available_area[1]
         
         return map_aspect > page_aspect
 
     def _get_meta_info_corner(self,render_size,m):
+        """Get the corner (in page coordinates) of a possibly
+        sensible place to render metadata such as a legend or scale"""
         (x,y) = self._get_render_corner(render_size,m)
         if self._is_h_contrained(m):
             y += render_size[1]
@@ -172,12 +245,11 @@ class PDFPrinter:
         return (x,y)
 
     def _get_render_corner(self,render_size,m):
+        """Get the corner of the box we should render our map into"""
         available_area = self._get_render_area()
 
-        x=self._margin;
-        y=self._margin;
-        
-        # TODO: adjust for render box if provided
+        x=available_area[0]
+        y=available_area[1]
         
         h_is_contrained = self._is_h_contrained(m)
         
@@ -185,27 +257,30 @@ class PDFPrinter:
             self._centering == centering.horizontal or
             (self._centering == centering.constrained and h_is_contrained) or
             (self._centering == centering.unconstrained and not h_is_contrained)):
-            x+=(available_area[0]-render_size[0])/2
+            x+=(available_area.width()-render_size[0])/2
 
         if (self._centering == centering.both or
             self._centering == centering.vertical or
             (self._centering == centering.constrained and not h_is_contrained) or
             (self._centering == centering.unconstrained and h_is_contrained)):
-            y+=(available_area[1]-render_size[1])/2
+            y+=(available_area.height()-render_size[1])/2
         return (x,y)
     
     def _get_map_pixel_size(self, width_page_m, height_page_m):
+        """for a given map size in paper coordinates return a tuple of the map 'pixel' size we
+        should create at the defined resolution"""
         return (int(m2px(width_page_m,self._resolution)), int(m2px(height_page_m,self._resolution)))
         
-    def render_map(self,m, filename):
+    def render_map(self,m, filename, render_scale=False):
+        """Render the given map to filename"""
         
         # work out the best scale to render out map at given the available space
-        (eff_width,eff_height) = self._get_render_area()
+        (eff_width,eff_height) = self._get_render_area_size()
         map_aspect = m.envelope().width()/m.envelope().height()
         page_aspect = eff_width/eff_height
         
-        scalex=m.scale()*m.width/eff_width
-        scaley=m.scale()*m.height/eff_height
+        scalex=m.envelope().width()/eff_width
+        scaley=m.envelope().height()/eff_height
         
         scale=max(scalex,scaley)
 
@@ -215,14 +290,16 @@ class PDFPrinter:
         maph=eff_height*scalefactor
         if self._preserve_aspect:
             if map_aspect > page_aspect:
-                maph=mapw
+                maph=mapw*(1/map_aspect)
             else:
-                mapw=maph
-            
-        m.resize(*self._get_map_pixel_size(mapw,maph))
+                mapw=maph*map_aspect
         
+        # set the map size so that raster elements render at the correct resolution
+        m.resize(*self._get_map_pixel_size(mapw,maph))
+        # calculate the translation for the map starting point
         (tx,ty) = self._get_render_corner((mapw,maph),m)
         
+        # create our cairo surface and context and then render the map into it
         s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
         ctx=cairo.Context(s)
         ctx.save()
@@ -233,7 +310,7 @@ class PDFPrinter:
         ctx.restore()
         
         # dont report scale if we have warped the aspect ratio
-        if self._preserve_aspect:
+        if self._preserve_aspect and render_scale:
             (tx,ty) = self._get_meta_info_corner((mapw,maph),m)
             ctx.translate(m2pt(tx),m2pt(ty))
 
