@@ -155,18 +155,31 @@ class PDFPrinter:
         
         return (eff_width,eff_height)
 
-    def _get_render_corner(self,render_size,m):
+    def _is_h_contrained(self,m):
         available_area = self._get_render_area()
         map_aspect = m.envelope().width()/m.envelope().height()
         page_aspect = available_area[0]/available_area[1]
         
+        return map_aspect > page_aspect
+
+    def _get_meta_info_corner(self,render_size,m):
+        (x,y) = self._get_render_corner(render_size,m)
+        if self._is_h_contrained(m):
+            y += render_size[1]
+        else:
+            x += render_size[0]
+            
+        return (x,y)
+
+    def _get_render_corner(self,render_size,m):
+        available_area = self._get_render_area()
 
         x=self._margin;
         y=self._margin;
         
         # TODO: adjust for render box if provided
         
-        h_is_contrained = map_aspect > page_aspect
+        h_is_contrained = self._is_h_contrained(m)
         
         if (self._centering == centering.both or
             self._centering == centering.horizontal or
@@ -221,6 +234,9 @@ class PDFPrinter:
         
         # dont report scale if we have warped the aspect ratio
         if self._preserve_aspect:
+            (tx,ty) = self._get_meta_info_corner((mapw,maph),m)
+            ctx.translate(m2pt(tx),m2pt(ty))
+
             ctx.set_source_rgb(0.0, 0.0, 0.0)
             ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL,
             cairo.FONT_WEIGHT_BOLD)
