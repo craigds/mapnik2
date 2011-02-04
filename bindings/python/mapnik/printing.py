@@ -14,7 +14,7 @@ see the documentation of mapnik2.printing.PDFPrinter() for options
 
 """
 
-from . import render, Map, Box2d
+from . import render, Map, Box2d, MemoryDatasource, Layer, Feature
 import math
 from foolscap.crypto import available
 
@@ -161,7 +161,7 @@ class PDFPrinter:
     with appropriate options and then call render_map with your mapnik map
     """
     def __init__(self, pagesize=pagesizes.a4, 
-                 margin=0.02, 
+                 margin=0.01, 
                  box=None,
                  percent_box=None,
                  scale=default_scale, 
@@ -171,7 +171,7 @@ class PDFPrinter:
         """Creates a cairo surface and context to render a PDF with.
         
         pagesize: tuple of page size in meters, see predefined sizes in pagessizes class (default a4)
-        margin: page margin in meters (default 0.02)
+        margin: page margin in meters (default 0.01)
         box: box within the page to render the map into (will not render over margin). This should be 
              a Mapnik Box2d object. Default is the full page within the margin
         percent_box: as per box, but specified as a percent (0->1) of the full page size. If both box
@@ -195,6 +195,11 @@ class PDFPrinter:
         self._resolution = resolution
         self._preserve_aspect = preserve_aspect
         self._centering = centering
+        
+        self._s = None
+        
+        self.map_box = None
+        self.scale = None
         
         # don't both to round the scale if they are not preserving the aspect ratio
         if not preserve_aspect:
@@ -238,9 +243,11 @@ class PDFPrinter:
         sensible place to render metadata such as a legend or scale"""
         (x,y) = self._get_render_corner(render_size,m)
         if self._is_h_contrained(m):
-            y += render_size[1]
+            y += render_size[1]+0.005
+            x = self._margin
         else:
-            x += render_size[0]
+            x += render_size[0]+0.005
+            y = self._margin
             
         return (x,y)
 
@@ -271,7 +278,7 @@ class PDFPrinter:
         should create at the defined resolution"""
         return (int(m2px(width_page_m,self._resolution)), int(m2px(height_page_m,self._resolution)))
         
-    def render_map(self,m, filename, render_scale=False):
+    def render_map(self,m, filename):
         """Render the given map to filename"""
         
         # work out the best scale to render out map at given the available space
@@ -300,8 +307,8 @@ class PDFPrinter:
         (tx,ty) = self._get_render_corner((mapw,maph),m)
         
         # create our cairo surface and context and then render the map into it
-        s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
-        ctx=cairo.Context(s)
+        self._s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
+        ctx=cairo.Context(self._s)
         ctx.save()
         ctx.translate(m2pt(tx),m2pt(ty))
         #cairo defaults to 72dpi
@@ -309,15 +316,90 @@ class PDFPrinter:
         render(m, ctx)
         ctx.restore()
         
-        # dont report scale if we have warped the aspect ratio
-        if self._preserve_aspect and render_scale:
-            (tx,ty) = self._get_meta_info_corner((mapw,maph),m)
+        self.scale = rounded_mapscale
+        self.map_box = Box2d(tx,ty,tx+mapw,ty+maph)
+    
+    def render_legend(self,m, render_scale=False):
+        if self._s:
+            ctx=cairo.Context(self._s)
+
+            (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
             ctx.translate(m2pt(tx),m2pt(ty))
 
+            line = 1
+            # dont report scale if we have warped the aspect ratio
             ctx.set_source_rgb(0.0, 0.0, 0.0)
-            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL,
-            cairo.FONT_WEIGHT_BOLD)
+            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            ctx.set_font_size(10)
+            if self._preserve_aspect and render_scale:
+                ctx.move_to(0,line*10)
+                ctx.show_text("SCALE 1:%d" % self.scale)
+                line += 1
+            
+            ctx.set_font_size(6)
+            ctx.move_to(0,(line-1)*10+6)
+            line += 1
+            ctx.show_text("SRS: " + m.srs)
+        
             ctx.set_font_size(12)
-            ctx.move_to(0,12)
-            ctx.show_text("SCALE 1:%d" % rounded_mapscale)
+            ctx.move_to(0,line*12)
+            line += 1
+            ctx.show_text("LEGEND:")
+            
+            for l in m.layers:
+                print "Creating legend for: ", l.name
+                for s in l.styles:
+                    st = m.find_style(s)
+                    for r in st.rules:
+                        for f in l.datasource.all_features():
+                            if f.geometry:
+                                if (not r.filter) or r.filter.evaluate(f) == '1':
+                                    legend_feature = f
+                                    break
+                        else:
+                            print "No valid geometry found for layer: ", l.name
+                            continue
+                        lemap=Map(int(m2pt(0.02)),int(m2pt(0.01)),m.srs)
+                        lemap.background = m.background
+                        lemap.append_style(s,st)
+
+                        ds = MemoryDatasource()
+                        if legend_feature.envelope().width() == 0:
+                            ds.add_feature(Feature(legend_feature.id(),"POINT(0 0)",**legend_feature.attributes))
+                            lemap.zoom_to_box(Box2d(-100,-100,100,100))
+                            layer_srs = m.srs
+                        else:
+                            ds.add_feature(legend_feature)
+                            layer_srs = l.srs
+
+                        lelayer = Layer("LegendLayer",layer_srs)
+                        lelayer.datasource = ds
+                        lelayer.styles.append(s)
+                        lemap.layers.append(lelayer)
+                        
+                        if legend_feature.envelope().width() != 0:
+                            lemap.zoom_all()
+                            lemap.zoom(1.1)
+                            
+                        ctx.save()
+                        ctx.translate(0,line*12)
+                        render(lemap, ctx)
+                        
+                        ctx.rectangle(0,0,int(m2pt(0.02)),int(m2pt(0.01)))
+                        ctx.set_source_rgb(0.5,0.5,0.5)
+                        ctx.set_line_width(2)
+                        ctx.stroke()
+                        ctx.restore()
+
+                        ctx.set_source_rgb(0.0, 0.0, 0.0)
+                        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+                        ctx.set_font_size(12)
+
+                        ctx.move_to(m2pt(0.025),line*12+m2pt(0.01)/2+ 6)
+                        if r.name:
+                            ctx.show_text("%s: %s - %s" % ( l.name, s, r.name ))
+                        else:
+                            ctx.show_text("%s: %s" % ( l.name, s))
+
+                        line += 3
         
