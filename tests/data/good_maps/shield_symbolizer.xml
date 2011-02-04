@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE Map  >
 <Map background-color="#b5d0d0" srs="+init=epsg:4326" minimum_version="0.7.0">
-    <Style name="1">
+    <Style name="PNG Shield">
         <Rule>
             <ShieldSymbolizer
              name="[label]"
@@ -20,17 +20,13 @@
              allow_overlap="true"
              avoid_edges="false"
             />
-        </Rule>
-        <Rule>
             <PointSymbolizer
                 allow_overlap="true" />
         </Rule>
     </Style>
-    <Style name="2">
+    <Style name="SVG Shield">
         <Rule>
             <LineSymbolizer></LineSymbolizer>
-        </Rule>
-        <Rule>
             <ShieldSymbolizer
              name="[label]"
              file="../svg/ellipses.svg"
@@ -47,8 +43,8 @@
         </Rule>
     </Style>
 
-    <Layer name="line" srs="+init=epsg:4326">
-        <StyleName>2</StyleName>
+    <Layer name="Lines" srs="+init=epsg:4326">
+        <StyleName>SVG Shield</StyleName>
         <Datasource>
             <Parameter name="file">../json/lines.json</Parameter>
             <Parameter name="layer_by_index">0</Parameter>
@@ -56,8 +52,8 @@
         </Datasource>
     </Layer>
 
-    <Layer name="point" srs="+init=epsg:4326">
-        <StyleName>1</StyleName>
+    <Layer name="Points" srs="+init=epsg:4326">
+        <StyleName>PNG Shield</StyleName>
         <Datasource>
             <Parameter name="file">../json/points.json</Parameter>
             <Parameter name="layer_by_index">0</Parameter>

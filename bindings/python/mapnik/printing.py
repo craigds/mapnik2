@@ -341,16 +341,16 @@ class PDFPrinter:
             line += 1
             ctx.show_text("SRS: " + m.srs)
         
-            ctx.set_font_size(12)
-            ctx.move_to(0,line*12)
-            line += 1
-            ctx.show_text("LEGEND:")
             
+            added_styles={}
+            have_header = False
             for l in m.layers:
                 print "Creating legend for: ", l.name
                 for s in l.styles:
                     st = m.find_style(s)
                     for r in st.rules:
+                        if added_styles.has_key((s,r.name)):
+                            continue
                         for f in l.datasource.all_features():
                             if f.geometry:
                                 if (not r.filter) or r.filter.evaluate(f) == '1':
@@ -359,6 +359,21 @@ class PDFPrinter:
                         else:
                             print "No valid geometry found for layer: ", l.name
                             continue
+                        added_styles[(s,r.name)] = None
+                        
+                        if not have_header:
+                            ctx.set_font_size(12)
+                            ctx.move_to(0,line*12)
+                            line += 1
+                            ctx.show_text("LEGEND:")
+                            have_header = True
+                        
+                        for sym in r.symbols:
+                            try:
+                                sym.avoid_edges=False
+                            except:
+                                print "**** Cant set avoid edges for rule", r.name
+                        
                         lemap=Map(int(m2pt(0.02)),int(m2pt(0.01)),m.srs)
                         lemap.background = m.background
                         lemap.append_style(s,st)
@@ -366,7 +381,7 @@ class PDFPrinter:
                         ds = MemoryDatasource()
                         if legend_feature.envelope().width() == 0:
                             ds.add_feature(Feature(legend_feature.id(),"POINT(0 0)",**legend_feature.attributes))
-                            lemap.zoom_to_box(Box2d(-100,-100,100,100))
+                            lemap.zoom_to_box(Box2d(-1000,-1000,1000,1000))
                             layer_srs = m.srs
                         else:
                             ds.add_feature(legend_feature)
@@ -383,23 +398,23 @@ class PDFPrinter:
                             
                         ctx.save()
                         ctx.translate(0,line*12)
+                        #extra save around map render as it sets up a clip box and doesn't clear it
+                        ctx.save()
                         render(lemap, ctx)
+                        ctx.restore()
                         
                         ctx.rectangle(0,0,int(m2pt(0.02)),int(m2pt(0.01)))
                         ctx.set_source_rgb(0.5,0.5,0.5)
-                        ctx.set_line_width(2)
+                        ctx.set_line_width(1)
                         ctx.stroke()
                         ctx.restore()
 
-                        ctx.set_source_rgb(0.0, 0.0, 0.0)
-                        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-                        ctx.set_font_size(12)
-
                         ctx.move_to(m2pt(0.025),line*12+m2pt(0.01)/2+ 6)
-                        if r.name:
-                            ctx.show_text("%s: %s - %s" % ( l.name, s, r.name ))
+                        if len(st.rules) == 1:
+                            ctx.show_text("%s" % ( s, ))
                         else:
-                            ctx.show_text("%s: %s" % ( l.name, s))
+                            ctx.show_text("%s: %s" % ( s, r.name))
 
-                        line += 3
+
+                        line += 2.5
         
