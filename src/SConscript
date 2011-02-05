@@ -137,6 +137,7 @@ source = Split(
     glyph_symbolizer.cpp
     markers_symbolizer.cpp
     metawriter.cpp
+    raster_colorizer.cpp
     """   
     )
 
