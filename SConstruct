@@ -424,10 +424,11 @@ if ('-h' in command_line_args) or ('--help' in command_line_args):
     HELP_REQUESTED = True
     
 
-if 'configure' in command_line_args:
+if 'configure' in command_line_args and not HELP_REQUESTED:
     force_configure = True
 elif HELP_REQUESTED:
-    preconfigured = True # this is just to ensure config gets skipped when help is requested
+    # to ensure config gets skipped when help is requested
+    preconfigured = True
 
 # initially populate environment with defaults and any possible custom arguments
 opts.Update(env)
@@ -442,7 +443,6 @@ if not force_configure:
                 env[key] = value
             preconfigured = True
         except:
-            # unpickling failed, so reconfigure as fallback
             preconfigured = False
     else:
         preconfigured = False
@@ -452,6 +452,7 @@ if not force_configure:
 # rebuilds, e.g. for folks following trunk
 for opt in pickle_store:
     if not opt in env:
+        #print 'missing opt', opt
         preconfigured = False
 
 # if custom arguments are supplied make sure to accept them
@@ -520,7 +521,16 @@ def parse_config(context, config, checks='--libs --cflags'):
     parsed = False
     if ret:
         try:
-            env.ParseConfig(cmd)
+            # hack for potential -framework GDAL syntax
+            # which will not end up being added to env['LIBS']
+            # and thus breaks knowledge below that gdal worked
+            if 'gdal-config' in cmd:
+                num_libs = len(env['LIBS'])
+                env.ParseConfig(cmd)
+                if not num_libs > env['LIBS']:
+                    env['LIBS'].append('gdal')
+            else:
+                env.ParseConfig(cmd)
             parsed = True
         except OSError, e:
             ret = False
@@ -545,9 +555,13 @@ def get_pkg_lib(context, config, lib):
     parsed = False
     if ret:
         try:
-            libnames = re.findall(libpattern,call(cmd,silent=True))
+            value = call(cmd,silent=True)
+            libnames = re.findall(libpattern,value)
             if libnames:
-              libname = libnames[0]
+                libname = libnames[0]
+            else:
+                # osx 1.8 install gives '-framework GDAL'
+                libname = 'gdal'
         except Exception, e:
             ret = False
             print ' unable to determine library name:'# %s' % str(e)
@@ -1301,7 +1315,7 @@ Help(opts.GenerateHelpText(env))
 #env.Prepend(LIBPATH = '/usr/local/lib')
 
 #### Builds ####
-if not HELP_REQUESTED:
+if not HELP_REQUESTED and '-c' not in command_line_args:
 
     if 'uninstall' in COMMAND_LINE_TARGETS:
         # dummy action in case there is nothing to uninstall, to avoid phony error..

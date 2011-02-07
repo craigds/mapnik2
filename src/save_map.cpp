@@ -59,7 +59,7 @@ void serialize_raster_colorizer(ptree & sym_node,
                 )->second;
             set_attr(band_node, "value", cb[i].get_value());    
             if (cb[i].get_value() != cb[i].get_max_value())
-                set_attr(band_node, "max_value", cb[i].get_max_value());    
+                set_attr(band_node, "max-value", cb[i].get_max_value());    
             set_attr(band_node, "midpoints", cb[i].get_midpoints());    
             optional<color> c = cb[i].get_color();
             if (c) set_attr(band_node, "color", * c);    
@@ -85,11 +85,15 @@ public:
         point_symbolizer dfl;
         if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_ )
         {
-            set_attr( sym_node, "allow_overlap", sym.get_allow_overlap() );
+            set_attr( sym_node, "allow-overlap", sym.get_allow_overlap() );
         }
         if ( sym.get_opacity() != dfl.get_opacity() || explicit_defaults_ )
         {
             set_attr( sym_node, "opacity", sym.get_opacity() );
+        }
+        if ( sym.get_point_placement() != dfl.get_point_placement() || explicit_defaults_ )
+        {
+            set_attr( sym_node, "placement", sym.get_point_placement() );
         }
         add_metawriter_attributes(sym_node, sym);
     }
@@ -199,11 +203,11 @@ public:
         
         if (sym.get_unlock_image() != dfl.get_unlock_image() || explicit_defaults_ )
         {
-            set_attr( sym_node, "unlock_image", sym.get_unlock_image() );
+            set_attr( sym_node, "unlock-image", sym.get_unlock_image() );
         }
         if (sym.get_no_text() != dfl.get_no_text() || explicit_defaults_ )
         {
-            set_attr( sym_node, "no_text", sym.get_no_text() );
+            set_attr( sym_node, "no-text", sym.get_no_text() );
         }
         if (sym.get_text_opacity() != dfl.get_text_opacity() || explicit_defaults_ )
         {
@@ -212,11 +216,11 @@ public:
         position displacement = sym.get_shield_displacement();
         if ( displacement.get<0>() != dfl.get_shield_displacement().get<0>() || explicit_defaults_ )
         {
-            set_attr( sym_node, "shield_dx", displacement.get<0>() );
+            set_attr( sym_node, "shield-dx", displacement.get<0>() );
         }
         if ( displacement.get<1>() != dfl.get_shield_displacement().get<1>() || explicit_defaults_ )
         {
-            set_attr( sym_node, "shield_dy", displacement.get<1>() );
+            set_attr( sym_node, "shield-dy", displacement.get<1>() );
         }
 
     }
@@ -263,7 +267,7 @@ public:
         }
         if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_)
         {
-            set_attr( sym_node, "allow_overlap", sym.get_allow_overlap() );
+            set_attr( sym_node, "allow-overlap", sym.get_allow_overlap() );
         }
         if (sym.get_spacing() != dfl.get_spacing() || explicit_defaults_)
         {
@@ -271,11 +275,19 @@ public:
         }
         if (sym.get_max_error() != dfl.get_max_error() || explicit_defaults_)
         {
-            set_attr( sym_node, "max_error", sym.get_max_error() );
+            set_attr( sym_node, "max-error", sym.get_max_error() );
         }
         if (sym.get_fill() != dfl.get_fill() || explicit_defaults_)
         {
             set_attr( sym_node, "fill", sym.get_fill() );
+        }
+        if (sym.get_width() != dfl.get_width() || explicit_defaults_)
+        {
+            set_attr( sym_node, "width", sym.get_width() );
+        }
+        if (sym.get_height() != dfl.get_height() || explicit_defaults_)
+        {
+            set_attr( sym_node, "height", sym.get_height() );
         }
 
         const stroke & strk =  sym.get_stroke();
@@ -293,7 +305,7 @@ public:
         glyph_symbolizer dfl("<no default>", expression_ptr());
 
         // face_name
-        set_attr( node, "face_name", sym.get_face_name() );    
+        set_attr( node, "face-name", sym.get_face_name() );    
 
         // char
         if (sym.get_char()) {
@@ -339,12 +351,12 @@ public:
         // allow_overlap
         if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_ )
         {
-            set_attr( node, "allow_overlap", sym.get_allow_overlap() );
+            set_attr( node, "allow-overlap", sym.get_allow_overlap() );
         }
         // avoid_edges
         if (sym.get_avoid_edges() != dfl.get_avoid_edges() || explicit_defaults_ )
         {
-            set_attr( node, "avoid_edges", sym.get_avoid_edges() );
+            set_attr( node, "avoid-edges", sym.get_avoid_edges() );
         }
 
         // displacement
@@ -362,18 +374,18 @@ public:
         const color & c = sym.get_halo_fill();
         if ( c != dfl.get_halo_fill() || explicit_defaults_ )
         {
-            set_attr( node, "halo_fill", c );
+            set_attr( node, "halo-fill", c );
         }
         
         if (sym.get_halo_radius() != dfl.get_halo_radius() || explicit_defaults_ )
         {
-            set_attr( node, "halo_radius", sym.get_halo_radius() );
+            set_attr( node, "halo-radius", sym.get_halo_radius() );
         }
 
         // angle_mode
         if (sym.get_angle_mode() != dfl.get_angle_mode() || explicit_defaults_ )
         {
-            set_attr( node, "angle_mode", sym.get_angle_mode() );
+            set_attr( node, "angle-mode", sym.get_angle_mode() );
         }
         add_metawriter_attributes(node, sym);
     }
@@ -408,11 +420,11 @@ private:
         }
         const std::string & face_name = sym.get_face_name();
         if ( ! face_name.empty() ) {
-            set_attr( node, "face_name", face_name );
+            set_attr( node, "face-name", face_name );
         }
         const std::string & fontset_name = sym.get_fontset().get_name();
         if ( ! fontset_name.empty() ) {
-            set_attr( node, "fontset_name", fontset_name );
+            set_attr( node, "fontset-name", fontset_name );
         }
 
         set_attr( node, "size", sym.get_text_size() );
@@ -443,45 +455,49 @@ private:
 
         if (sym.get_vertical_alignment() != dfl.get_vertical_alignment() || explicit_defaults_ )
         {
-            set_attr( node, "vertical_alignment", sym.get_vertical_alignment() );
+            set_attr( node, "vertical-alignment", sym.get_vertical_alignment() );
         }
 
         if (sym.get_halo_radius() != dfl.get_halo_radius() || explicit_defaults_ )
         {
-            set_attr( node, "halo_radius", sym.get_halo_radius() );
+            set_attr( node, "halo-radius", sym.get_halo_radius() );
         }
         const color & c = sym.get_halo_fill();
         if ( c != dfl.get_halo_fill() || explicit_defaults_ )
         {
-            set_attr( node, "halo_fill", c );
+            set_attr( node, "halo-fill", c );
         }
         if (sym.get_text_ratio() != dfl.get_text_ratio() || explicit_defaults_ )
         {
-            set_attr( node, "text_ratio", sym.get_text_ratio() );
+            set_attr( node, "text-ratio", sym.get_text_ratio() );
         }
         if (sym.get_wrap_width() != dfl.get_wrap_width() || explicit_defaults_ )
         {
-            set_attr( node, "wrap_width", sym.get_wrap_width() );
+            set_attr( node, "wrap-width", sym.get_wrap_width() );
         }
         if (sym.get_wrap_before() != dfl.get_wrap_before() || explicit_defaults_ )
         {
-            set_attr( node, "wrap_before", sym.get_wrap_before() );
+            set_attr( node, "wrap-before", sym.get_wrap_before() );
         }
         if (sym.get_wrap_char() != dfl.get_wrap_char() || explicit_defaults_ )
         {
-            set_attr( node, "wrap_character", std::string(1, sym.get_wrap_char()) );
+            set_attr( node, "wrap-character", std::string(1, sym.get_wrap_char()) );
         }
         if (sym.get_text_transform() != dfl.get_text_transform() || explicit_defaults_ )
         {
-            set_attr( node, "text_transform", sym.get_text_transform() );
+            set_attr( node, "text-transform", sym.get_text_transform() );
         }
         if (sym.get_line_spacing() != dfl.get_line_spacing() || explicit_defaults_ )
         {
-            set_attr( node, "line_spacing", sym.get_line_spacing() );
+            set_attr( node, "line-spacing", sym.get_line_spacing() );
         }
         if (sym.get_character_spacing() != dfl.get_character_spacing() || explicit_defaults_ )
         {
-            set_attr( node, "character_spacing", sym.get_character_spacing() );
+            set_attr( node, "character-spacing", sym.get_character_spacing() );
+        }
+        if (sym.get_label_position_tolerance() != dfl.get_label_position_tolerance() || explicit_defaults_ )
+        {
+            set_attr( node, "label-position-tolerance", sym.get_label_position_tolerance() );
         }
         if (sym.get_label_spacing() != dfl.get_label_spacing() || explicit_defaults_ )
         {
@@ -489,32 +505,36 @@ private:
         }
         if (sym.get_minimum_distance() != dfl.get_minimum_distance() || explicit_defaults_ )
         {
-            set_attr( node, "min_distance", sym.get_minimum_distance() );
+            set_attr( node, "minimum-distance", sym.get_minimum_distance() );
         }
         if (sym.get_minimum_padding() != dfl.get_minimum_padding() || explicit_defaults_ )
         {
-            set_attr( node, "min_padding", sym.get_minimum_padding() );
+            set_attr( node, "minimum-padding", sym.get_minimum_padding() );
         }
         if (sym.get_allow_overlap() != dfl.get_allow_overlap() || explicit_defaults_ )
         {
-            set_attr( node, "allow_overlap", sym.get_allow_overlap() );
+            set_attr( node, "allow-overlap", sym.get_allow_overlap() );
         }
         if (sym.get_avoid_edges() != dfl.get_avoid_edges() || explicit_defaults_ )
         {
-            set_attr( node, "avoid_edges", sym.get_avoid_edges() );
+            set_attr( node, "avoid-edges", sym.get_avoid_edges() );
         }
         // for shield_symbolizer this is later overridden
         if (sym.get_text_opacity() != dfl.get_text_opacity() || explicit_defaults_ )
         {
             set_attr( node, "opacity", sym.get_text_opacity() );
         }
+        if (sym.get_max_char_angle_delta() != dfl.get_max_char_angle_delta() || explicit_defaults_ )
+        {
+            set_attr( node, "max-char-angle-delta", sym.get_max_char_angle_delta() );
+        }
         if (sym.get_horizontal_alignment() != dfl.get_horizontal_alignment() || explicit_defaults_ )
         {
-            set_attr( node, "horizontal_alignment", sym.get_horizontal_alignment() );
+            set_attr( node, "horizontal-alignment", sym.get_horizontal_alignment() );
         }
         if (sym.get_justify_alignment() != dfl.get_justify_alignment() || explicit_defaults_ )
         {
-            set_attr( node, "justify_alignment", sym.get_justify_alignment() );
+            set_attr( node, "justify-alignment", sym.get_justify_alignment() );
         }
     }
 
@@ -544,6 +564,14 @@ private:
         {
             set_attr( node, "stroke-linecap", strk.get_line_cap() );
         }
+        if ( strk.get_gamma() != dfl.get_gamma() || explicit_defaults_ )
+        {
+            set_attr( node, "stroke-gamma", strk.get_gamma());
+        }
+        if ( strk.dash_offset() != dfl.dash_offset() || explicit_defaults_ )
+        {
+            set_attr( node, "stroke-dashoffset", strk.dash_offset());
+        }
         if ( ! strk.get_dash_array().empty() )
         {
             std::ostringstream os;
@@ -553,10 +581,6 @@ private:
                 if ( i + 1 < dashes.size() ) os << ", ";
             }
             set_attr( node, "stroke-dasharray", os.str() );
-        }
-        if ( strk.dash_offset() != dfl.dash_offset() || explicit_defaults_ )
-        {
-            set_attr( node, "stroke-dashoffset", strk.dash_offset());
         }
                 
     }
@@ -632,11 +656,18 @@ void serialize_style( ptree & map_node, Map::const_style_iterator style_it, bool
 {
     const feature_type_style & style = style_it->second;
     const std::string & name = style_it->first;
+    filter_mode_e filter_mode = style.get_filter_mode();
 
     ptree & style_node = map_node.push_back(
         ptree::value_type("Style", ptree()))->second;
 
     set_attr(style_node, "name", name);
+    
+    feature_type_style dfl;
+    if (filter_mode != dfl.get_filter_mode() || explicit_defaults)
+    {
+        set_attr(style_node, "filter-mode", filter_mode);
+    }
 
     rules::const_iterator it = style.get_rules().begin();
     rules::const_iterator end = style.get_rules().end();
@@ -663,7 +694,7 @@ void serialize_fontset( ptree & map_node, Map::const_fontset_iterator fontset_it
     {
         ptree & font_node = fontset_node.push_back(
             ptree::value_type("Font", ptree()))->second;
-        set_attr(font_node, "face_name", *it);
+        set_attr(font_node, "face-name", *it);
     }
 
 }
@@ -717,7 +748,7 @@ void serialize_layer( ptree & map_node, const layer & layer, bool explicit_defau
         
     if ( layer.clear_label_cache() || explicit_defaults )
     {        
-        set_attr/*<bool>*/( layer_node, "clear_label_cache", layer.clear_label_cache() );
+        set_attr/*<bool>*/( layer_node, "clear-label-cache", layer.clear_label_cache() );
     }
 
     if ( layer.getMinZoom() )
@@ -798,7 +829,7 @@ void serialize_map(ptree & pt, Map const & map, bool explicit_defaults)
     unsigned buffer_size = map.buffer_size();
     if ( buffer_size || explicit_defaults)
     {
-        set_attr( map_node, "buffer_size", buffer_size ); 
+        set_attr( map_node, "buffer-size", buffer_size ); 
     }
 
     {

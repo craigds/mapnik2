@@ -96,7 +96,7 @@ void agg_renderer<T>::process(text_symbolizer const& sym,
                     placement text_placement(info,sym,scale_factor_);
                     text_placement.avoid_edges = sym.get_avoid_edges();
                     if (sym.get_label_placement() == POINT_PLACEMENT ||
-                            sym.get_label_placement() == INTERIOR_POINT_PLACEMENT)
+                            sym.get_label_placement() == INTERIOR_PLACEMENT)
                     {
                         double label_x, label_y, z=0.0;
                         if (sym.get_label_placement() == POINT_PLACEMENT)

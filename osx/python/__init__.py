@@ -39,8 +39,25 @@ Several things happen when you do:
 
 """
 
-import os
 import sys
+
+ver_int = int('%s%s' % (sys.version_info[0],sys.version_info[1]))
+ver_str = '%s.%s' % (sys.version_info[0],sys.version_info[1])
+
+path_insert = '/Library/Frameworks/Mapnik.framework/Versions/2.0/unix/lib/python%s/site-packages/mapnik2'
+
+if ver_int < 25:
+    raise ImportError('Mapnik bindings are only available for python versions >= 2.5')
+elif ver_int in (25,26,27,31):
+    sys.path.insert(0, path_insert % ver_str)
+    from _mapnik2 import *
+elif ver_int > 31:
+    raise ImportError('Mapnik bindings are only available for python versions <= 3.1')
+else:
+    raise ImportError('Mapnik bindings are only available for python versions 2.5, 2.6, 2.7, and 3.1')
+
+
+import os
 import warnings
 
 try:
@@ -55,11 +72,7 @@ except ImportError:
 flags = sys.getdlopenflags()
 sys.setdlopenflags(RTLD_NOW | RTLD_GLOBAL)
 
-from _mapnik2 import *
 from paths import inputpluginspath, fontscollectionpath
-
-import printing
-printing.renderer = render
 
 # The base Boost.Python class
 BoostPythonMetaclass = Coord.__class__

@@ -2,7 +2,12 @@
 
   <Style name="test">
     <Rule>
-      <BuildingSymbolizer fill="yellow" fill-opacity=".7" height="30"/>
+       <!-- big, thick, aliased lines -->
+      <LineSymbolizer stroke="white" stroke-gamma="0" stroke-width="10"/>
+
+       <!-- small, clean, aliased lines -->
+      <LineSymbolizer stroke="red" stroke-gamma="1" stroke-width=".5"/>
+
     </Rule>  
   </Style>
 

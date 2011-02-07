@@ -374,14 +374,14 @@ class PDFPrinter:
                             except:
                                 print "**** Cant set avoid edges for rule", r.name
                         
-                        lemap=Map(int(m2pt(0.02)),int(m2pt(0.01)),m.srs)
+                        lemap=Map(int(m2pt(0.015)),int(m2pt(0.01)),m.srs)
                         lemap.background = m.background
                         lemap.append_style(s,st)
 
                         ds = MemoryDatasource()
                         if legend_feature.envelope().width() == 0:
                             ds.add_feature(Feature(legend_feature.id(),"POINT(0 0)",**legend_feature.attributes))
-                            lemap.zoom_to_box(Box2d(-1000,-1000,1000,1000))
+                            lemap.zoom_to_box(Box2d(-100,-100,100,100))
                             layer_srs = m.srs
                         else:
                             ds.add_feature(legend_feature)
