@@ -34,7 +34,6 @@ static const char * label_placement_strings[] = {
     "point",
     "line",
     "vertex",
-    "interior_point",
     "interior",
     ""
 };
