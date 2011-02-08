@@ -324,9 +324,7 @@ class PDFPrinter:
         self.map_box = Box2d(tx,ty,tx+mapw,ty+maph)
 
     def render_on_map_scale(self,m):
-        # aim for about 8 divisions across the map
-        div_size = sequence_scale(m.envelope().width()/8, [1,2,5])
-        page_div_size = self.map_box.width()*div_size/m.envelope().width()
+        (div_size,page_div_size) = self._get_sensible_scalebar_size(m)
         
         first_value_x = (math.floor(m.envelope().minx / div_size) + 1) * div_size
         first_value_x_percent = (first_value_x-m.envelope().minx)/m.envelope().width()
@@ -336,19 +334,38 @@ class PDFPrinter:
         first_value_y_percent = (first_value_y-m.envelope().miny)/m.envelope().height()
         self._render_scale_axis(first_value_y,first_value_y_percent,self.map_box.miny,self.map_box.maxy,page_div_size,div_size,self.map_box.minx,self.map_box.maxx,False)
             
+    def _get_sensible_scalebar_size(self,m):
+        # aim for about 8 divisions across the map
+        div_size = sequence_scale(m.envelope().width()/8, [1,2,5])
+        page_div_size = self.map_box.width()*div_size/m.envelope().width()
+        return (div_size,page_div_size)
+
+    def _render_box(self,ctx,x,y,w,h,text=None,stroke_color=(0,0,0),fill_color=(0,0,0)):
+        ctx.set_line_width(1)
+        ctx.set_source_rgb(*fill_color)
+        ctx.rectangle(x,y,w,h)
+        ctx.fill()
+
+        ctx.set_source_rgb(*stroke_color)
+        ctx.rectangle(x,y,w,h)
+        ctx.stroke()
+        
+        if text:
+            ctx.set_source_rgb(*[1-z for z in fill_color])
+            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            ctx.set_font_size(h-1)
+            ctx.move_to(x+1,y+h-2)
+            ctx.show_text(text)
 
     def _render_scale_axis(self,first,first_percent,start,end,page_div_size,div_size,boundary_start,boundary_end,is_x_axis):
         prev = start
-        with_text = False
-        dark = True
+        text = None
+        fill=(0,0,0)
         border_size=6
         value = first_percent * (end-start) + start
         label_value = first-div_size
         
         ctx=cairo.Context(self._s)
-        ctx.set_line_width(1)
-        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        ctx.set_font_size(border_size-1)
         
         if not is_x_axis:
             ctx.translate(m2pt(self.map_box.center().x),m2pt(self.map_box.center().y))
@@ -362,81 +379,78 @@ class PDFPrinter:
             ctx.stroke()
 
             for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
-                if dark:
-                    ctx.set_source_rgb(0,0,0)
-                else:
-                    ctx.set_source_rgb(1,1,1)
-
-                x = m2pt(prev)
-                y = bar
-                width = m2pt(value-prev)
-                height = border_size
-
-                ctx.rectangle(x,y,width,height)
-                ctx.fill()
-
-                ctx.set_source_rgb(0,0,0)
-                ctx.rectangle(x,y,width,height)
-                ctx.stroke()
-                
-                if with_text:
-                    if dark:
-                        ctx.set_source_rgb(1,1,1)
-                    else:
-                        ctx.set_source_rgb(0,0,0)
-                    
-                    ctx.move_to(x+1,y+border_size-2)
-                    ctx.show_text("%d" % label_value)
-            
+                self._render_box(ctx,m2pt(prev),bar,m2pt(value-prev),border_size,text,fill_color=fill)
             
             prev = value
             value+=page_div_size
-            with_text = True
-            dark = not dark
+            fill = [1-z for z in fill]
             label_value += div_size
+            text = "%d" % label_value
         else:
             for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
-                if dark:
-                    ctx.set_source_rgb(0,0,0)
-                else:
-                    ctx.set_source_rgb(1,1,1)
+                self._render_box(ctx,m2pt(prev),bar,m2pt(end-prev),border_size,fill_color=fill)
 
-                x = m2pt(prev)
-                y = bar
-                width = m2pt(end-prev)
-                height = border_size
-
-                ctx.rectangle(x,y,width,height)
-                ctx.fill()
-
-                ctx.set_source_rgb(0,0,0)
-                ctx.rectangle(x,y,width,height)
-                ctx.stroke()
     
+    def render_scale(self,m,sx,sy):
+        """ m: map to render scale for
+        sx,sy: position to render the scale at in pt's
+        
+        will return the size of the rendered scale block in pts
+        """
+        
+        (w,h) = (0,0)
+        # dont report scale if we have warped the aspect ratio
+        if self._preserve_aspect:
+            ctx=cairo.Context(self._s)
+            ctx.set_source_rgb(0.0, 0.0, 0.0)
+
+            font_size=10
+            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+            ctx.set_font_size(font_size)
+            ctx.move_to(sx,sy+font_size)
+            ctx.show_text("SCALE 1:%d" % self.scale)
+            
+            h+=font_size+2
+            
+            (div_size,page_div_size) = self._get_sensible_scalebar_size(m)
+            bar_size=6.0
+            box_count=3
+    
+            text = None
+            div_unit = "m"
+            if div_size > 1000:
+                div_size /= 1000
+                div_unit = "km"
+            
+            for ii in range(box_count):
+                fill=(ii%2,)*3
+                self._render_box(ctx, sx+m2pt(ii*page_div_size), sy+h, m2pt(page_div_size), bar_size, text, fill_color=fill)
+                fill = [1-z for z in fill]
+                text = "%d%s" % ((ii+1)*div_size,div_unit)
+            else:
+                self._render_box(ctx, sx+m2pt(box_count*page_div_size), sy+h, m2pt(page_div_size), bar_size, text, fill_color=(1,1,1), stroke_color=(1,1,1))
+            w = (box_count+1)*page_div_size
+            h += bar_size
+        return (w,h)
+
     def render_legend(self,m, render_scale=False):
         if self._s:
             ctx=cairo.Context(self._s)
 
             (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
-            legend_area_height = self._pagesize[1] - self._margin * 2 - ty
-            ctx.translate(m2pt(tx),m2pt(ty))
-
-            line = 0
-            # dont report scale if we have warped the aspect ratio
-            ctx.set_source_rgb(0.0, 0.0, 0.0)
-            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-            ctx.set_font_size(10)
-            if self._preserve_aspect and render_scale:
-                ctx.move_to(0,(line+1)*10)
-                ctx.show_text("SCALE 1:%d" % self.scale)
-                line += 1
+            
+            cx = m2pt(tx)
+            cy = m2pt(ty)
+            
+            if render_scale:
+                (w,h) = self.render_scale(m, cx,cy)
+                cy += h + 2
             
             ctx.set_font_size(6)
-            ctx.move_to(0,(line-2)*10+6)
-            line += 1
+            ctx.move_to(cx,cy+6)
             ctx.show_text("SRS: " + m.srs)
+            cy+=6+1
         
-            
             have_header = False
             for l in m.layers:
                 print "Creating legend for: ", l.name
@@ -486,9 +500,10 @@ class PDFPrinter:
 #                        added_styles[(s,r.name)] = None
                         
                         if not have_header:
+                            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
                             ctx.set_font_size(12)
-                            ctx.move_to(0,line*12)
-                            line += 1
+                            ctx.move_to(cx,cy+12)
+                            cy+=14
                             ctx.show_text("LEGEND:")
                             have_header = True
                         
@@ -528,23 +543,22 @@ class PDFPrinter:
                             lemap.zoom(1.1)
                             
                         
-                        if line*12+legend_map_size[1] > m2pt(legend_area_height):
+                        if cy+legend_map_size[1] > m2pt(self._pagesize[1] - self._margin):
                             self._s.show_page()
-                            ctx=cairo.Context(self._s)
-                            ctx.translate(m2pt(self._margin),m2pt(self._margin))
-                            line=1
-                            legend_area_height = self._pagesize[1] - self._margin * 2
+#                            ctx=cairo.Context(self._s)
+                            cx = m2pt(self._margin)
+                            cy = m2pt(self._margin)
 
                         if not have_layer_header:
                             ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
                             ctx.set_font_size(12)
-                            ctx.move_to(0,(line+1)*12)
-                            line += 1.5
+                            ctx.move_to(cx,cy+12)
+                            cy += 14
                             ctx.show_text("LAYER: " + l.name)
                             have_layer_header = True
                         
                         ctx.save()
-                        ctx.translate(0,line*12)
+                        ctx.translate(cx,cy)
                         #extra save around map render as it sets up a clip box and doesn't clear it
                         ctx.save()
                         render(lemap, ctx)
@@ -556,7 +570,7 @@ class PDFPrinter:
                         ctx.stroke()
                         ctx.restore()
 
-                        ctx.move_to(m2pt(0.025),line*12+m2pt(0.01)/2+ 6)
+                        ctx.move_to(cx+m2pt(0.025),cy+m2pt(0.01)/2+ 6)
                             
 
                         ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
@@ -564,5 +578,5 @@ class PDFPrinter:
 
                         ctx.show_text(rule_text)
 
-                        line += 2.5
+                        cy+=m2pt(0.012)
         
