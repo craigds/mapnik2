@@ -146,15 +146,19 @@ def any_scale(scale):
     """Scale helper function that allows any scale"""
     return scale
 
-_default_scale=[1,1.25,1.5,1.75,2,2.5,3,3.5,4,4.5,5,6,7.5,8,9,10]
-def default_scale(scale):
+def sequence_scale(scale,scale_sequence):
     """Default scale helper, this rounds scale to a 'sensible' value"""
     factor = math.floor(math.log10(scale))
     norm = scale/(10**factor)
     
-    for s in _default_scale:
+    for s in scale_sequence:
         if norm <= s:
             return s*10**factor
+    return scale_sequence[0]*10**(factor+1)
+
+def default_scale(scale):
+    """Default scale helper, this rounds scale to a 'sensible' value"""
+    return sequence_scale(scale, [1,1.25,1.5,1.75,2,2.5,3,3.5,4,4.5,5,6,7.5,8,9,10])
 
 class PDFPrinter:
     """Main class for creating PDF print outs, basically contruct an instance
@@ -318,48 +322,168 @@ class PDFPrinter:
         
         self.scale = rounded_mapscale
         self.map_box = Box2d(tx,ty,tx+mapw,ty+maph)
+
+    def render_on_map_scale(self,m):
+        # aim for about 8 divisions across the map
+        div_size = sequence_scale(m.envelope().width()/8, [1,2,5])
+        page_div_size = self.map_box.width()*div_size/m.envelope().width()
+        
+        first_value_x = (math.floor(m.envelope().minx / div_size) + 1) * div_size
+        first_value_x_percent = (first_value_x-m.envelope().minx)/m.envelope().width()
+        self._render_scale_axis(first_value_x,first_value_x_percent,self.map_box.minx,self.map_box.maxx,page_div_size,div_size,self.map_box.miny,self.map_box.maxy,True)
+        
+        first_value_y = (math.floor(m.envelope().miny / div_size) + 1) * div_size
+        first_value_y_percent = (first_value_y-m.envelope().miny)/m.envelope().height()
+        self._render_scale_axis(first_value_y,first_value_y_percent,self.map_box.miny,self.map_box.maxy,page_div_size,div_size,self.map_box.minx,self.map_box.maxx,False)
+            
+
+    def _render_scale_axis(self,first,first_percent,start,end,page_div_size,div_size,boundary_start,boundary_end,is_x_axis):
+        prev = start
+        with_text = False
+        dark = True
+        border_size=6
+        value = first_percent * (end-start) + start
+        label_value = first-div_size
+        
+        ctx=cairo.Context(self._s)
+        ctx.set_line_width(1)
+        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        ctx.set_font_size(border_size-1)
+        
+        if not is_x_axis:
+            ctx.translate(m2pt(self.map_box.center().x),m2pt(self.map_box.center().y))
+            ctx.rotate(-math.pi/2)
+            ctx.translate(-m2pt(self.map_box.center().y),-m2pt(self.map_box.center().x))
+        
+        while value < end:
+            ctx.move_to(m2pt(value),m2pt(boundary_start))
+            ctx.line_to(m2pt(value),m2pt(boundary_end))
+            ctx.set_source_rgb(0.5,0.5,0.5)
+            ctx.stroke()
+
+            for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
+                if dark:
+                    ctx.set_source_rgb(0,0,0)
+                else:
+                    ctx.set_source_rgb(1,1,1)
+
+                x = m2pt(prev)
+                y = bar
+                width = m2pt(value-prev)
+                height = border_size
+
+                ctx.rectangle(x,y,width,height)
+                ctx.fill()
+
+                ctx.set_source_rgb(0,0,0)
+                ctx.rectangle(x,y,width,height)
+                ctx.stroke()
+                
+                if with_text:
+                    if dark:
+                        ctx.set_source_rgb(1,1,1)
+                    else:
+                        ctx.set_source_rgb(0,0,0)
+                    
+                    ctx.move_to(x+1,y+border_size-2)
+                    ctx.show_text("%d" % label_value)
+            
+            
+            prev = value
+            value+=page_div_size
+            with_text = True
+            dark = not dark
+            label_value += div_size
+        else:
+            for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
+                if dark:
+                    ctx.set_source_rgb(0,0,0)
+                else:
+                    ctx.set_source_rgb(1,1,1)
+
+                x = m2pt(prev)
+                y = bar
+                width = m2pt(end-prev)
+                height = border_size
+
+                ctx.rectangle(x,y,width,height)
+                ctx.fill()
+
+                ctx.set_source_rgb(0,0,0)
+                ctx.rectangle(x,y,width,height)
+                ctx.stroke()
     
     def render_legend(self,m, render_scale=False):
         if self._s:
             ctx=cairo.Context(self._s)
 
             (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
+            legend_area_height = self._pagesize[1] - self._margin * 2 - ty
             ctx.translate(m2pt(tx),m2pt(ty))
 
-            line = 1
+            line = 0
             # dont report scale if we have warped the aspect ratio
             ctx.set_source_rgb(0.0, 0.0, 0.0)
             ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
             ctx.set_font_size(10)
             if self._preserve_aspect and render_scale:
-                ctx.move_to(0,line*10)
+                ctx.move_to(0,(line+1)*10)
                 ctx.show_text("SCALE 1:%d" % self.scale)
                 line += 1
             
             ctx.set_font_size(6)
-            ctx.move_to(0,(line-1)*10+6)
+            ctx.move_to(0,(line-2)*10+6)
             line += 1
             ctx.show_text("SRS: " + m.srs)
         
             
-            added_styles={}
             have_header = False
             for l in m.layers:
                 print "Creating legend for: ", l.name
-                for s in l.styles:
-                    st = m.find_style(s)
-                    for r in st.rules:
-                        if added_styles.has_key((s,r.name)):
-                            continue
-                        for f in l.datasource.all_features():
-                            if f.geometry:
+                have_layer_header = False
+                added_styles={}
+                
+                # check through the features to find which combinations of styles are active
+                # for each unique combination add a legend entry
+                
+                for f in l.datasource.all_features():
+                    if f.geometry:
+                        active_rules = []
+                        rule_text = ""
+                        for s in l.styles:
+                            st = m.find_style(s)
+                            for r in st.rules:
                                 if (not r.filter) or r.filter.evaluate(f) == '1':
-                                    legend_feature = f
-                                    break
-                        else:
-                            print "No valid geometry found for layer: ", l.name
+                                    active_rules.append((s,r.name))
+                                    if r.filter and str(r.filter) != "true":
+                                        if len(rule_text) > 0:
+                                            rule_text += " AND "
+                                        if r.title:
+                                            rule_text += r.title
+                                        else:
+                                            rule_text += str(r.filter)
+                        active_rules = tuple(active_rules)
+                        if added_styles.has_key(active_rules):
                             continue
-                        added_styles[(s,r.name)] = None
+                        
+                        added_styles[active_rules] = (f,rule_text)
+                
+                legend_items = added_styles.keys()
+                legend_items.sort()
+                for li in legend_items:
+                    if True:
+                        (f,rule_text) = added_styles[li]
+                    
+#                for s in l.styles:
+#                    st = m.find_style(s)
+#                    for r in st.rules:
+#                        if added_styles.has_key((s,r.name)):
+#                            continue
+#
+#                        else:
+#                            print "No valid geometry found for layer: ", l.name
+#                            continue
+#                        added_styles[(s,r.name)] = None
                         
                         if not have_header:
                             ctx.set_font_size(12)
@@ -376,28 +500,49 @@ class PDFPrinter:
                         
                         legend_map_size = (int(m2pt(0.02)),int(m2pt(0.01)))
                         lemap=Map(*legend_map_size,srs=m.srs)
-                        lemap.background = m.background
+                        if m.background:
+                            lemap.background = m.background
+                        # the buffer is needed to ensure that text labels that overflow the edge of the
+                        # map still render for the legend
                         lemap.buffer_size=1000
-                        lemap.append_style(s,st)
+                        for s in l.styles:
+                            lemap.append_style(s,m.find_style(s))
 
                         ds = MemoryDatasource()
-                        if legend_feature.envelope().width() == 0:
-                            ds.add_feature(Feature(legend_feature.id(),"POINT(0 0)",**legend_feature.attributes))
+                        if f.envelope().width() == 0:
+                            ds.add_feature(Feature(f.id(),"POINT(0 0)",**f.attributes))
                             lemap.zoom_to_box(Box2d(-1,-1,1,1))
                             layer_srs = m.srs
                         else:
-                            ds.add_feature(legend_feature)
+                            ds.add_feature(f)
                             layer_srs = l.srs
 
                         lelayer = Layer("LegendLayer",layer_srs)
                         lelayer.datasource = ds
-                        lelayer.styles.append(s)
+                        for s in l.styles:
+                            lelayer.styles.append(s)
                         lemap.layers.append(lelayer)
                         
-                        if legend_feature.envelope().width() != 0:
+                        if f.envelope().width() != 0:
                             lemap.zoom_all()
                             lemap.zoom(1.1)
                             
+                        
+                        if line*12+legend_map_size[1] > m2pt(legend_area_height):
+                            self._s.show_page()
+                            ctx=cairo.Context(self._s)
+                            ctx.translate(m2pt(self._margin),m2pt(self._margin))
+                            line=1
+                            legend_area_height = self._pagesize[1] - self._margin * 2
+
+                        if not have_layer_header:
+                            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+                            ctx.set_font_size(12)
+                            ctx.move_to(0,(line+1)*12)
+                            line += 1.5
+                            ctx.show_text("LAYER: " + l.name)
+                            have_layer_header = True
+                        
                         ctx.save()
                         ctx.translate(0,line*12)
                         #extra save around map render as it sets up a clip box and doesn't clear it
@@ -412,11 +557,12 @@ class PDFPrinter:
                         ctx.restore()
 
                         ctx.move_to(m2pt(0.025),line*12+m2pt(0.01)/2+ 6)
-                        if len(st.rules) == 1:
-                            ctx.show_text("%s" % ( s, ))
-                        else:
-                            ctx.show_text("%s: %s" % ( s, r.name))
+                            
 
+                        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+                        ctx.set_font_size(10)
+
+                        ctx.show_text(rule_text)
 
                         line += 2.5
         
