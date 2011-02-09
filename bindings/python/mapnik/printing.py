@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 """Mapnik classes to assist in creating printable maps
 
 basic usage is along the lines of
@@ -14,7 +16,7 @@ see the documentation of mapnik2.printing.PDFPrinter() for options
 
 """
 
-from . import render, Map, Box2d, MemoryDatasource, Layer, Feature
+from . import render, Map, Box2d, MemoryDatasource, Layer, Feature, Projection, ProjTransform, Coord
 import math
 from foolscap.crypto import available
 
@@ -158,7 +160,41 @@ def sequence_scale(scale,scale_sequence):
 
 def default_scale(scale):
     """Default scale helper, this rounds scale to a 'sensible' value"""
-    return sequence_scale(scale, [1,1.25,1.5,1.75,2,2.5,3,3.5,4,4.5,5,6,7.5,8,9,10])
+    return sequence_scale(scale, (1,1.25,1.5,1.75,2,2.5,3,4,5,6,7.5,8,9,10))
+
+def deg_min_sec_scale(scale):
+    for x in (1.0/3600,
+              2.0/3600,
+              5.0/3600,
+              10.0/3600,
+              30.0/3600,
+              1.0/60,
+              2.0/60,
+              5.0/60,
+              10.0/60,
+              30.0/60,
+              1,
+              2,
+              5,
+              10
+              ):
+        if scale < x:
+            return x
+    else:
+        return x
+    
+def format_deg_min_sec(value):
+    deg = math.floor(value)
+    min = math.floor((value-deg)/(1.0/60))
+    sec = int((value - deg*1.0/60)/1.0/3600)
+    return "%d°%d'%d\"" % (deg,min,sec)
+
+def round_grid_generator(first,last,step):
+        val = (math.floor(first / step) + 1) * step
+        yield val
+        while val < last:
+            val += step
+            yield val
 
 class PDFPrinter:
     """Main class for creating PDF print outs, basically contruct an instance
@@ -322,6 +358,85 @@ class PDFPrinter:
         
         self.scale = rounded_mapscale
         self.map_box = Box2d(tx,ty,tx+mapw,ty+maph)
+
+    def render_on_map_lat_lon_grid(self,m,dec_degrees=True):
+        p2=Projection(m.srs)
+
+        latlon_bounds = p2.inverse(m.envelope())
+        if p2.inverse(m.envelope().center()).x > latlon_bounds.maxx:
+            latlon_bounds = Box2d(latlon_bounds.maxx,latlon_bounds.miny,latlon_bounds.minx+360,latlon_bounds.maxy)
+
+        if p2.inverse(m.envelope().center()).y > latlon_bounds.maxy:
+            latlon_bounds = Box2d(latlon_bounds.miny,latlon_bounds.maxy,latlon_bounds.maxx,latlon_bounds.miny+360)
+            
+        latlon_mapwidth = latlon_bounds.width()
+        # render an extra 20% so we generally won't miss the ends of lines
+        latlon_buffer = 0.2*latlon_mapwidth
+        if dec_degrees:
+            latlon_divsize = default_scale(latlon_mapwidth/7.0)
+        else:
+            latlon_divsize = deg_min_sec_scale(latlon_mapwidth/7.0)
+        latlon_interpsize = latlon_mapwidth/m.width
+        
+        self._render_lat_lon_axis(m,p2,latlon_bounds.minx,latlon_bounds.maxx,latlon_bounds.miny,latlon_bounds.maxy,latlon_buffer,latlon_interpsize,latlon_divsize,dec_degrees,True)
+        self._render_lat_lon_axis(m,p2,latlon_bounds.miny,latlon_bounds.maxy,latlon_bounds.minx,latlon_bounds.maxx,latlon_buffer,latlon_interpsize,latlon_divsize,dec_degrees,False)
+
+    def _render_lat_lon_axis(self,m,p2,x1,x2,y1,y2,latlon_buffer,latlon_interpsize,latlon_divsize,dec_degrees,is_x_axis):
+        ctx=cairo.Context(self._s)
+        ctx.set_source_rgb(1,0,0)
+        ctx.set_line_width(1)
+        latlon_labelsize = 6
+        
+        ctx.translate(m2pt(self.map_box.minx),m2pt(self.map_box.miny))
+        ctx.rectangle(0,0,m2pt(self.map_box.width()),m2pt(self.map_box.height()))
+        ctx.clip()
+        
+        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        ctx.set_font_size(latlon_labelsize)
+        
+        box_top = self.map_box.height()
+        if not is_x_axis:
+            ctx.translate(m2pt(self.map_box.width()/2),m2pt(self.map_box.height()/2))
+            ctx.rotate(-math.pi/2)
+            ctx.translate(-m2pt(self.map_box.height()/2),-m2pt(self.map_box.width()/2))
+            box_top = self.map_box.width()
+        
+        for xvalue in round_grid_generator(x1 - latlon_buffer,x2 + latlon_buffer,latlon_divsize):
+            yvalue = y1 - latlon_buffer
+            start_cross = None
+            end_cross = None
+            while yvalue < y2+latlon_buffer:
+                if is_x_axis:
+                    start = m.view_transform().forward(p2.forward(Coord(xvalue,yvalue)))
+                else:
+                    temp = m.view_transform().forward(p2.forward(Coord(yvalue,xvalue)))
+                    start = Coord(m2pt(self.map_box.height())-temp.y,temp.x)
+                yvalue += latlon_interpsize
+                if is_x_axis:
+                    end = m.view_transform().forward(p2.forward(Coord(xvalue,yvalue)))
+                else:
+                    temp = m.view_transform().forward(p2.forward(Coord(yvalue,xvalue)))
+                    end = Coord(m2pt(self.map_box.height())-temp.y,temp.x)
+
+                ctx.move_to(start.x,start.y)
+                ctx.line_to(end.x,end.y)
+                ctx.stroke()
+                
+                if cmp(start.y, 0) != cmp(end.y,0):
+                    start_cross = end.x
+                if cmp(start.y,m2pt(self.map_box.height())) != cmp(end.y, m2pt(self.map_box.height())):
+                    end_cross = end.x
+            
+            if dec_degrees:
+                line_text = "%g" % (xvalue)
+            else:
+                line_text = format_deg_min_sec(xvalue)
+            if start_cross:
+                ctx.move_to(start_cross+2,latlon_labelsize)
+                ctx.show_text(line_text)
+            if end_cross:
+                ctx.move_to(end_cross+2,m2pt(box_top)-2)
+                ctx.show_text(line_text)
 
     def render_on_map_scale(self,m):
         (div_size,page_div_size) = self._get_sensible_scalebar_size(m)
