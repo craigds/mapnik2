@@ -1830,7 +1830,7 @@ void map_parser::parse_raster_colorizer(raster_colorizer_ptr const& rc,
     {
         // mode
         colorizer_mode default_mode =
-            get_attr<colorizer_mode>(node, "default_mode", COLORIZER_LINEAR);
+            get_attr<colorizer_mode>(node, "default-mode", COLORIZER_LINEAR);
             
         if(default_mode == COLORIZER_INHERIT) {
             throw config_error("RasterColorizer mode must not be INHERIT. ");
@@ -1838,7 +1838,7 @@ void map_parser::parse_raster_colorizer(raster_colorizer_ptr const& rc,
         rc->set_default_mode( default_mode );
 
         // default colour
-        optional<color> default_color = get_opt_attr<color>(node, "default_color");
+        optional<color> default_color = get_opt_attr<color>(node, "default-color");
         if (default_color) 
         {
             rc->set_default_color( *default_color );

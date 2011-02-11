@@ -364,8 +364,8 @@ private:
         ptree & col_node = sym_node.push_back(
             ptree::value_type("RasterColorizer", ptree() ))->second;
 
-        set_attr(col_node, "default_mode", colorizer->get_default_mode());
-        set_attr(col_node, "default_color", colorizer->get_default_color());
+        set_attr(col_node, "default-mode", colorizer->get_default_mode());
+        set_attr(col_node, "default-color", colorizer->get_default_color());
         set_attr(col_node, "epsilon", colorizer->get_epsilon());
 
         unsigned i;

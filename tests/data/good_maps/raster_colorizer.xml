@@ -6,7 +6,7 @@
   <Style name="elevation">
     <Rule>
       <RasterSymbolizer>
-        <RasterColorizer default_mode="discrete" default_color="white" >
+        <RasterColorizer default-mode="discrete" default-color="white" >
 <!-- DISCRETE RAINBOW
             <stop color="red"    value = "0"  />
             <stop color="orange" value = "5"  />
@@ -16,10 +16,10 @@
             <stop color="indigo" value = "25" />
 -->
 
-<!-- LINEAR BLEND
-            <stop color="#222222"    value = "0" mode = "linear" />
+<!-- LINEAR BLEND -->
+            <stop color="#222222" value = "0" mode = "linear" />
             <stop color="#EEEEEE" value = "25" />
--->
+<!-- -->
 
 <!-- BANDED
             <stop color="red"    value = "0" mode = "exact" />
@@ -31,14 +31,14 @@
             <stop color="violet"    value = "12" mode = "exact" />
 -->
 
-<!-- MIXED -->
+<!-- MIXED 
             <stop color="red"    value = "0"  />
             <stop color="orange" value = "5"  />
             <stop color="yellow" value = "10" mode = "exact" />
             <stop color="green" value = "13" mode = "exact" />
             <stop color="#222222"  value = "15" mode = "linear" />
             <stop color="#EEEEEE" value = "25" />
-
+-->
 
 
         </RasterColorizer>
