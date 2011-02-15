@@ -16,9 +16,8 @@ see the documentation of mapnik2.printing.PDFPrinter() for options
 
 """
 
-from . import render, Map, Box2d, MemoryDatasource, Layer, Feature, Projection, ProjTransform, Coord
+from . import render, Map, Box2d, MemoryDatasource, Layer, Feature, Projection, ProjTransform, Coord, Style, Rule
 import math
-from foolscap.crypto import available
 
 try:
     import cairo
@@ -491,6 +490,7 @@ class PDFPrinter:
             ctx.move_to(m2pt(value),m2pt(boundary_start))
             ctx.line_to(m2pt(value),m2pt(boundary_end))
             ctx.set_source_rgb(0.5,0.5,0.5)
+            ctx.set_line_width(1)
             ctx.stroke()
 
             for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
@@ -548,7 +548,7 @@ class PDFPrinter:
             h += bar_size
         return (w,h)
 
-    def render_legend(self,m, render_scale=False):
+    def render_legend(self,m, render_scale=False, page_break=False):
         if self._s:
             ctx=cairo.Context(self._s)
 
@@ -582,7 +582,8 @@ class PDFPrinter:
                         for s in l.styles:
                             st = m.find_style(s)
                             for r in st.rules:
-                                if (not r.filter) or r.filter.evaluate(f) == '1':
+                                if ((not r.filter) or r.filter.evaluate(f) == '1'):# and \
+                                    #r.min_scale <= m.scale and m.scale < r.max_scale:
                                     active_rules.append((s,r.name))
                                     if r.filter and str(r.filter) != "true":
                                         if len(rule_text) > 0:
@@ -603,17 +604,6 @@ class PDFPrinter:
                     if True:
                         (f,rule_text) = added_styles[li]
                     
-#                for s in l.styles:
-#                    st = m.find_style(s)
-#                    for r in st.rules:
-#                        if added_styles.has_key((s,r.name)):
-#                            continue
-#
-#                        else:
-#                            print "No valid geometry found for layer: ", l.name
-#                            continue
-#                        added_styles[(s,r.name)] = None
-                        
                         if not have_header:
                             ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
                             ctx.set_font_size(12)
@@ -629,14 +619,23 @@ class PDFPrinter:
                                 print "**** Cant set avoid edges for rule", r.name
                         
                         legend_map_size = (int(m2pt(0.02)),int(m2pt(0.01)))
-                        lemap=Map(*legend_map_size,srs=m.srs)
+                        lemap=Map(legend_map_size[0],legend_map_size[1],srs=m.srs)
                         if m.background:
                             lemap.background = m.background
                         # the buffer is needed to ensure that text labels that overflow the edge of the
                         # map still render for the legend
                         lemap.buffer_size=1000
                         for s in l.styles:
-                            lemap.append_style(s,m.find_style(s))
+                            sty=m.find_style(s)
+                            lestyle = Style()
+                            for r in sty.rules:
+                                print "SCALE CHECK:",s,m.scale_denominator(),r.min_scale,r.max_scale 
+                                if r.min_scale <= m.scale_denominator() and m.scale_denominator() < r.max_scale:
+                                    lerule = r
+                                    lerule.min_scale = 0
+                                    lerule.max_scale = float("inf")
+                                    lestyle.rules.append(lerule)
+                            lemap.append_style(s,lestyle)
 
                         ds = MemoryDatasource()
                         if f.envelope().width() == 0:
@@ -658,9 +657,8 @@ class PDFPrinter:
                             lemap.zoom(1.1)
                             
                         
-                        if cy+legend_map_size[1] > m2pt(self._pagesize[1] - self._margin):
+                        if page_break and cy+legend_map_size[1] > m2pt(self._pagesize[1] - self._margin):
                             self._s.show_page()
-#                            ctx=cairo.Context(self._s)
                             cx = m2pt(self._margin)
                             cy = m2pt(self._margin)
 
