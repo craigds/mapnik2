@@ -43,80 +43,80 @@ class centering:
     horizontal=4
     both=5
 
-class pagesizes:
-    """Some predefined page sizes custom sizes can also be passed
-    a tuple of the page width and height in meters"""
-    a0 = (0.841000,1.189000)
-    a0l = (1.189000,0.841000)
-    b0 = (1.000000,1.414000)
-    b0l = (1.414000,1.000000)
-    c0 = (0.917000,1.297000)
-    c0l = (1.297000,0.917000)
-    a1 = (0.594000,0.841000)
-    a1l = (0.841000,0.594000)
-    b1 = (0.707000,1.000000)
-    b1l = (1.000000,0.707000)
-    c1 = (0.648000,0.917000)
-    c1l = (0.917000,0.648000)
-    a2 = (0.420000,0.594000)
-    a2l = (0.594000,0.420000)
-    b2 = (0.500000,0.707000)
-    b2l = (0.707000,0.500000)
-    c2 = (0.458000,0.648000)
-    c2l = (0.648000,0.458000)
-    a3 = (0.297000,0.420000)
-    a3l = (0.420000,0.297000)
-    b3 = (0.353000,0.500000)
-    b3l = (0.500000,0.353000)
-    c3 = (0.324000,0.458000)
-    c3l = (0.458000,0.324000)
-    a4 = (0.210000,0.297000)
-    a4l = (0.297000,0.210000)
-    b4 = (0.250000,0.353000)
-    b4l = (0.353000,0.250000)
-    c4 = (0.229000,0.324000)
-    c4l = (0.324000,0.229000)
-    a5 = (0.148000,0.210000)
-    a5l = (0.210000,0.148000)
-    b5 = (0.176000,0.250000)
-    b5l = (0.250000,0.176000)
-    c5 = (0.162000,0.229000)
-    c5l = (0.229000,0.162000)
-    a6 = (0.105000,0.148000)
-    a6l = (0.148000,0.105000)
-    b6 = (0.125000,0.176000)
-    b6l = (0.176000,0.125000)
-    c6 = (0.114000,0.162000)
-    c6l = (0.162000,0.114000)
-    a7 = (0.074000,0.105000)
-    a7l = (0.105000,0.074000)
-    b7 = (0.088000,0.125000)
-    b7l = (0.125000,0.088000)
-    c7 = (0.081000,0.114000)
-    c7l = (0.114000,0.081000)
-    a8 = (0.052000,0.074000)
-    a8l = (0.074000,0.052000)
-    b8 = (0.062000,0.088000)
-    b8l = (0.088000,0.062000)
-    c8 = (0.057000,0.081000)
-    c8l = (0.081000,0.057000)
-    a9 = (0.037000,0.052000)
-    a9l = (0.052000,0.037000)
-    b9 = (0.044000,0.062000)
-    b9l = (0.062000,0.044000)
-    c9 = (0.040000,0.057000)
-    c9l = (0.057000,0.040000)
-    a10 = (0.026000,0.037000)
-    a10l = (0.037000,0.026000)
-    b10 = (0.031000,0.044000)
-    b10l = (0.044000,0.031000)
-    c10 = (0.028000,0.040000)
-    c10l = (0.040000,0.028000)
-    letter = (0.216,0.279)
-    letterl = (0.279,0.216)
-    legal = (0.216,0.356)
-    legall = (0.356,0.216)
-
+"""Some predefined page sizes custom sizes can also be passed
+a tuple of the page width and height in meters"""
+pagesizes = {
+    "a0": (0.841000,1.189000),
+    "a0l": (1.189000,0.841000),
+    "b0": (1.000000,1.414000),
+    "b0l": (1.414000,1.000000),
+    "c0": (0.917000,1.297000),
+    "c0l": (1.297000,0.917000),
+    "a1": (0.594000,0.841000),
+    "a1l": (0.841000,0.594000),
+    "b1": (0.707000,1.000000),
+    "b1l": (1.000000,0.707000),
+    "c1": (0.648000,0.917000),
+    "c1l": (0.917000,0.648000),
+    "a2": (0.420000,0.594000),
+    "a2l": (0.594000,0.420000),
+    "b2": (0.500000,0.707000),
+    "b2l": (0.707000,0.500000),
+    "c2": (0.458000,0.648000),
+    "c2l": (0.648000,0.458000),
+    "a3": (0.297000,0.420000),
+    "a3l": (0.420000,0.297000),
+    "b3": (0.353000,0.500000),
+    "b3l": (0.500000,0.353000),
+    "c3": (0.324000,0.458000),
+    "c3l": (0.458000,0.324000),
+    "a4": (0.210000,0.297000),
+    "a4l": (0.297000,0.210000),
+    "b4": (0.250000,0.353000),
+    "b4l": (0.353000,0.250000),
+    "c4": (0.229000,0.324000),
+    "c4l": (0.324000,0.229000),
+    "a5": (0.148000,0.210000),
+    "a5l": (0.210000,0.148000),
+    "b5": (0.176000,0.250000),
+    "b5l": (0.250000,0.176000),
+    "c5": (0.162000,0.229000),
+    "c5l": (0.229000,0.162000),
+    "a6": (0.105000,0.148000),
+    "a6l": (0.148000,0.105000),
+    "b6": (0.125000,0.176000),
+    "b6l": (0.176000,0.125000),
+    "c6": (0.114000,0.162000),
+    "c6l": (0.162000,0.114000),
+    "a7": (0.074000,0.105000),
+    "a7l": (0.105000,0.074000),
+    "b7": (0.088000,0.125000),
+    "b7l": (0.125000,0.088000),
+    "c7": (0.081000,0.114000),
+    "c7l": (0.114000,0.081000),
+    "a8": (0.052000,0.074000),
+    "a8l": (0.074000,0.052000),
+    "b8": (0.062000,0.088000),
+    "b8l": (0.088000,0.062000),
+    "c8": (0.057000,0.081000),
+    "c8l": (0.081000,0.057000),
+    "a9": (0.037000,0.052000),
+    "a9l": (0.052000,0.037000),
+    "b9": (0.044000,0.062000),
+    "b9l": (0.062000,0.044000),
+    "c9": (0.040000,0.057000),
+    "c9l": (0.057000,0.040000),
+    "a10": (0.026000,0.037000),
+    "a10l": (0.037000,0.026000),
+    "b10": (0.031000,0.044000),
+    "b10l": (0.044000,0.031000),
+    "c10": (0.028000,0.040000),
+    "c10l": (0.040000,0.028000),
+    "letter": (0.216,0.279),
+    "letterl": (0.279,0.216),
+    "legal": (0.216,0.356),
+    "legall": (0.356,0.216),
+}
 """size of a pt in meters"""
 pt_size=0.0254/72.0
 
@@ -175,7 +175,9 @@ def deg_min_sec_scale(scale):
               1,
               2,
               5,
-              10
+              10,
+              30,
+              60
               ):
         if scale < x:
             return x
@@ -199,17 +201,18 @@ class PDFPrinter:
     """Main class for creating PDF print outs, basically contruct an instance
     with appropriate options and then call render_map with your mapnik map
     """
-    def __init__(self, pagesize=pagesizes.a4, 
+    def __init__(self, pagesize=pagesizes["a4"], 
                  margin=0.01, 
                  box=None,
                  percent_box=None,
                  scale=default_scale, 
                  resolution=resolutions.dpi72,
                  preserve_aspect=True,
-                 centering=centering.constrained):
+                 centering=centering.constrained,
+                 is_latlon=False):
         """Creates a cairo surface and context to render a PDF with.
         
-        pagesize: tuple of page size in meters, see predefined sizes in pagessizes class (default a4)
+        pagesize: tuple of page size in meters, see predefined sizes in pagessizes dict (default a4)
         margin: page margin in meters (default 0.01)
         box: box within the page to render the map into (will not render over margin). This should be 
              a Mapnik Box2d object. Default is the full page within the margin
@@ -226,6 +229,7 @@ class PDFPrinter:
                    This should be a value from the centering class. The default is to center on the
                    maps constrained axis, typically this will be horizontal for portrait pages and
                    vertical for landscape pages.
+        is_latlon: Is the map in lat lon degrees. If true magic anti meridian logic is enabled
         """
         self._pagesize = pagesize
         self._margin = margin
@@ -234,6 +238,7 @@ class PDFPrinter:
         self._resolution = resolution
         self._preserve_aspect = preserve_aspect
         self._centering = centering
+        self._is_latlon = is_latlon
         
         self._s = None
         
@@ -348,17 +353,35 @@ class PDFPrinter:
         # create our cairo surface and context and then render the map into it
         self._s = cairo.PDFSurface(filename, m2pt(self._pagesize[0]),m2pt(self._pagesize[1]))
         ctx=cairo.Context(self._s)
-        ctx.save()
-        ctx.translate(m2pt(tx),m2pt(ty))
-        #cairo defaults to 72dpi
-        ctx.scale(72.0/self._resolution,72.0/self._resolution)
-        render(m, ctx)
-        ctx.restore()
+        def render_map():
+            ctx.save()
+            ctx.translate(m2pt(tx),m2pt(ty))
+            #cairo defaults to 72dpi
+            ctx.scale(72.0/self._resolution,72.0/self._resolution)
+            render(m, ctx)
+            ctx.restore()
+        
+        # antimeridian
+        render_map()
+        if self._is_latlon and (m.envelope().minx < -180 or m.envelope().maxx > 180):
+            old_env = m.envelope()
+            if m.envelope().minx < -180:
+                delta = 360
+            else:
+                delta = -360
+            m.zoom_to_box(Box2d(old_env.minx+delta,old_env.miny,old_env.maxx+delta,old_env.maxy))
+            render_map()
+            # restore the original env
+            m.zoom_to_box(old_env)
+            
         
         self.scale = rounded_mapscale
         self.map_box = Box2d(tx,ty,tx+mapw,ty+maph)
 
     def render_on_map_lat_lon_grid(self,m,dec_degrees=True):
+        # don't render lat_lon grid if we are already in latlon
+        if self._is_latlon:
+            return
         p2=Projection(m.srs)
 
         latlon_bounds = p2.inverse(m.envelope())
@@ -478,6 +501,8 @@ class PDFPrinter:
         border_size=6
         value = first_percent * (end-start) + start
         label_value = first-div_size
+        if self._is_latlon and label_value < -180:
+            label_value += 360
         
         ctx=cairo.Context(self._s)
         
@@ -499,7 +524,9 @@ class PDFPrinter:
             prev = value
             value+=page_div_size
             fill = [1-z for z in fill]
-            label_value += div_size
+            label_value += div_size 
+            if self._is_latlon and label_value > 180:
+                label_value -= 360
             text = "%d" % label_value
         else:
             for bar in (m2pt(boundary_start)-border_size,m2pt(boundary_end)):
@@ -514,8 +541,9 @@ class PDFPrinter:
         """
         
         (w,h) = (0,0)
+        # don't render scale if we are lat lon
         # dont report scale if we have warped the aspect ratio
-        if self._preserve_aspect:
+        if self._preserve_aspect and not self._is_latlon:
             ctx=cairo.Context(self._s)
             ctx.set_source_rgb(0.0, 0.0, 0.0)
 
@@ -582,8 +610,10 @@ class PDFPrinter:
                         for s in l.styles:
                             st = m.find_style(s)
                             for r in st.rules:
-                                if ((not r.filter) or r.filter.evaluate(f) == '1'):# and \
-                                    #r.min_scale <= m.scale and m.scale < r.max_scale:
+                                # we need to do the scale test here as well so we don't
+                                # add unused scale rules to the legend description
+                                if ((not r.filter) or r.filter.evaluate(f) == '1') and \
+                                    r.min_scale <= m.scale_denominator() and m.scale_denominator() < r.max_scale:
                                     active_rules.append((s,r.name))
                                     if r.filter and str(r.filter) != "true":
                                         if len(rule_text) > 0:
@@ -629,7 +659,6 @@ class PDFPrinter:
                             sty=m.find_style(s)
                             lestyle = Style()
                             for r in sty.rules:
-                                print "SCALE CHECK:",s,m.scale_denominator(),r.min_scale,r.max_scale 
                                 if r.min_scale <= m.scale_denominator() and m.scale_denominator() < r.max_scale:
                                     lerule = r
                                     lerule.min_scale = 0
