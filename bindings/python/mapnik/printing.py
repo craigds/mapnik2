@@ -25,11 +25,19 @@ try:
 except ImportError:
     HAS_PYCAIRO_MODULE = False
 
+try:
+    import pangocairo
+    import pango
+    HAS_PANGOCAIRO_MODULE = True
+except ImportError:
+    HAS_PANGOCAIRO_MODULE = False
+
+
 class centering:
     """Style of centering to use with the map, the default is constrained
     
     none: map will be placed flush with the margin/box in the top left corner
-    constrained: map will be centered on the most constrained axis (for an portrait page
+    constrained: map will be centered on the most constrained axis (for a portrait page
                  and a square map this will be horizontally)
     unconstrained: map will be centered on the unconstrained axis
     vertical:
@@ -202,7 +210,7 @@ class PDFPrinter:
     with appropriate options and then call render_map with your mapnik map
     """
     def __init__(self, pagesize=pagesizes["a4"], 
-                 margin=0.01, 
+                 margin=0.005, 
                  box=None,
                  percent_box=None,
                  scale=default_scale, 
@@ -255,6 +263,52 @@ class PDFPrinter:
 
         if not HAS_PYCAIRO_MODULE:
             raise Exception("PDF rendering only available when pycairo is available")
+        
+        self.font_name = "DejaVu Sans"
+    
+    def get_context(self):
+        """allow access so that extra 'bits' can be rendered to the page directly"""
+        return cairo.Context(self._s)
+    
+    def get_width(self):
+        return self._pagesize[0]
+
+    def get_height(self):
+        return self._pagesize[1]
+
+    def get_margin(self):
+        return self._margin
+    
+    def write_text(self,ctx,text,box_width=None,size=10, fill_color=(0.0, 0.0, 0.0), alignment=None):
+        if HAS_PANGOCAIRO_MODULE:
+            pctx = pangocairo.CairoContext(ctx)
+            l = pctx.create_layout()
+            fd = pango.FontDescription("%s %d" % (self.font_name,size))
+            l.set_font_description(fd)
+            if box_width:
+                l.set_width(int(box_width*pango.SCALE))
+            if alignment:
+                l.set_alignment(alignment)
+            pctx.update_layout(l)
+            l.set_text(text)
+            pctx.set_source_rgb(*fill_color)
+            pctx.show_layout(l)
+            return l.get_pixel_extents()[0]
+            
+        else:
+            ctx.rel_move_to(0,size)
+            ctx.select_font_face(self.font_name, cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+            ctx.set_font_size(size)
+            ctx.show_text(text)
+            ctx.rel_move_to(0,size)
+            return (0,0,len(text)*size,size)
+
+    def _get_context(self):
+        if HAS_PANGOCAIRO_MODULE:
+            return 
+        elif HAS_PYCAIRO_MODULE:
+            return cairo.Context(self._s)
+        return None
     
     def _get_render_area(self):
         """return a bounding box with the area of the page we are allowed to render out map to
@@ -413,7 +467,7 @@ class PDFPrinter:
         ctx.rectangle(0,0,m2pt(self.map_box.width()),m2pt(self.map_box.height()))
         ctx.clip()
         
-        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        ctx.select_font_face("DejaVu", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         ctx.set_font_size(latlon_labelsize)
         
         box_top = self.map_box.height()
@@ -471,10 +525,14 @@ class PDFPrinter:
         first_value_y_percent = (first_value_y-m.envelope().miny)/m.envelope().height()
         self._render_scale_axis(first_value_y,first_value_y_percent,self.map_box.miny,self.map_box.maxy,page_div_size,div_size,self.map_box.minx,self.map_box.maxx,False)
             
-    def _get_sensible_scalebar_size(self,m):
+    def _get_sensible_scalebar_size(self,m,width=-1):
         # aim for about 8 divisions across the map
+        # also make sure we can fit the bar with in page area width if specified
         div_size = sequence_scale(m.envelope().width()/8, [1,2,5])
         page_div_size = self.map_box.width()*div_size/m.envelope().width()
+        while width > 0 and page_div_size > width:
+            div_size /=2
+            page_div_size /= 2
         return (div_size,page_div_size)
 
     def _render_box(self,ctx,x,y,w,h,text=None,stroke_color=(0,0,0),fill_color=(0,0,0)):
@@ -488,11 +546,8 @@ class PDFPrinter:
         ctx.stroke()
         
         if text:
-            ctx.set_source_rgb(*[1-z for z in fill_color])
-            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-            ctx.set_font_size(h-1)
-            ctx.move_to(x+1,y+h-2)
-            ctx.show_text(text)
+            ctx.move_to(x+1,y)
+            self.write_text(ctx,text,fill_color=[1-z for z in fill_color],size=h-2)
 
     def _render_scale_axis(self,first,first_percent,start,end,page_div_size,div_size,boundary_start,boundary_end,is_x_axis):
         prev = start
@@ -533,70 +588,94 @@ class PDFPrinter:
                 self._render_box(ctx,m2pt(prev),bar,m2pt(end-prev),border_size,fill_color=fill)
 
     
-    def render_scale(self,m,sx,sy):
+    def render_scale(self,m,ctx=None,width=-1):
         """ m: map to render scale for
-        sx,sy: position to render the scale at in pt's
+        ctx: A cairo context to render the scale to. If this is None (the default) then
+            automatically create a context and choose the best location for the scale bar.
+        width: Width of area available to render scale bar in (in m)
         
         will return the size of the rendered scale block in pts
         """
         
         (w,h) = (0,0)
+        
         # don't render scale if we are lat lon
         # dont report scale if we have warped the aspect ratio
         if self._preserve_aspect and not self._is_latlon:
-            ctx=cairo.Context(self._s)
-            ctx.set_source_rgb(0.0, 0.0, 0.0)
-
-            font_size=10
-            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-            ctx.set_font_size(font_size)
-            ctx.move_to(sx,sy+font_size)
-            ctx.show_text("SCALE 1:%d" % self.scale)
+            if ctx is None:
+                ctx=cairo.Context(self._s)
+                (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
+                ctx.translate(tx,ty)
             
-            h+=font_size+2
-            
-            (div_size,page_div_size) = self._get_sensible_scalebar_size(m)
+            (div_size,page_div_size) = self._get_sensible_scalebar_size(m, width/4.0)
             bar_size=6.0
             box_count=3
     
-            text = None
             div_unit = "m"
             if div_size > 1000:
                 div_size /= 1000
                 div_unit = "km"
             
+            text = None
+            ctx.save()
             for ii in range(box_count):
                 fill=(ii%2,)*3
-                self._render_box(ctx, sx+m2pt(ii*page_div_size), sy+h, m2pt(page_div_size), bar_size, text, fill_color=fill)
+                self._render_box(ctx, m2pt(ii*page_div_size), h, m2pt(page_div_size), bar_size, text, fill_color=fill)
                 fill = [1-z for z in fill]
-                text = "%d%s" % ((ii+1)*div_size,div_unit)
+                text = "%g%s" % ((ii+1)*div_size,div_unit)
             else:
-                self._render_box(ctx, sx+m2pt(box_count*page_div_size), sy+h, m2pt(page_div_size), bar_size, text, fill_color=(1,1,1), stroke_color=(1,1,1))
+                self._render_box(ctx, m2pt(box_count*page_div_size), h, m2pt(page_div_size), bar_size, text, fill_color=(1,1,1), stroke_color=(1,1,1))
             w = (box_count+1)*page_div_size
             h += bar_size
+            ctx.restore()
+
+            if width > 0:
+                box_width=m2pt(width)
+            else:
+                box_width = None
+
+            font_size=6
+            ctx.move_to(0,h)
+            if HAS_PANGOCAIRO_MODULE:
+                alignment = pango.ALIGN_CENTER
+            else:
+                alignment = None
+
+            text_ext=self.write_text(ctx,"SCALE 1:%d" % self.scale,box_width=box_width,size=font_size, alignment=alignment)
+            h+=text_ext[3]+2
+        
         return (w,h)
 
-    def render_legend(self,m, render_scale=False, page_break=False):
-        if self._s:
-            ctx=cairo.Context(self._s)
-
-            (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
-            
-            cx = m2pt(tx)
-            cy = m2pt(ty)
-            
-            if render_scale:
-                (w,h) = self.render_scale(m, cx,cy)
-                cy += h + 2
-            
-            ctx.set_font_size(6)
-            ctx.move_to(cx,cy+6)
-            ctx.show_text("SRS: " + m.srs)
-            cy+=6+1
+    def render_legend(self,m, page_break=False, ctx=None, collumns=1,width=None, height=None):
+        """ m: map to render legend for
+        ctx: A cairo context to render the legend to. If this is None (the default) then
+            automatically create a context and choose the best location for the legend.
+        width: Width of area available to render legend in (in m)
+        page_break: move to next page if legen over flows this one
+        collumns: number of collumns available in legend box
         
-            have_header = False
+        will return the size of the rendered block in pts
+        """
+
+        (w,h) = (0,0)
+        if self._s:
+            if ctx is None:
+                ctx=cairo.Context(self._s)
+                (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
+                ctx.translate(tx,ty)
+                width = self._pagesize[0]-2*pt2m(tx)
+                height = self._pagesize[1]-self._margin-pt2m(ty)
+
+            x=0
+            y=0
+            if width:
+                cwidth = width/collumns
+                w=m2pt(width)
+            else:
+                cwidth = None
+            current_collumn = 0
+            
             for l in m.layers:
-                print "Creating legend for: ", l.name
                 have_layer_header = False
                 added_styles={}
                 
@@ -634,21 +713,13 @@ class PDFPrinter:
                     if True:
                         (f,rule_text) = added_styles[li]
                     
-                        if not have_header:
-                            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
-                            ctx.set_font_size(12)
-                            ctx.move_to(cx,cy+12)
-                            cy+=14
-                            ctx.show_text("LEGEND:")
-                            have_header = True
-                        
                         for sym in r.symbols:
                             try:
                                 sym.avoid_edges=False
                             except:
                                 print "**** Cant set avoid edges for rule", r.name
                         
-                        legend_map_size = (int(m2pt(0.02)),int(m2pt(0.01)))
+                        legend_map_size = (int(m2pt(0.015)),int(m2pt(0.0075)))
                         lemap=Map(legend_map_size[0],legend_map_size[1],srs=m.srs)
                         if m.background:
                             lemap.background = m.background
@@ -684,23 +755,29 @@ class PDFPrinter:
                         if f.envelope().width() != 0:
                             lemap.zoom_all()
                             lemap.zoom(1.1)
-                            
                         
-                        if page_break and cy+legend_map_size[1] > m2pt(self._pagesize[1] - self._margin):
-                            self._s.show_page()
-                            cx = m2pt(self._margin)
-                            cy = m2pt(self._margin)
+                        item_size = legend_map_size[1]
+                        if not have_layer_header:
+                            item_size += 8
+
+                        if y+item_size > m2pt(height):
+                            current_collumn += 1
+                            y=0
+                            if current_collumn >= collumns:
+                                if page_break:
+                                    self._s.show_page()
+                                    x=0
+                                    current_collumn = 0
+                                else:
+                                    break
 
                         if not have_layer_header:
-                            ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-                            ctx.set_font_size(12)
-                            ctx.move_to(cx,cy+12)
-                            cy += 14
-                            ctx.show_text("LAYER: " + l.name)
+                            ctx.move_to(x+m2pt(current_collumn*cwidth),y)
+                            e=self.write_text(ctx, l.name, m2pt(cwidth), 8)
+                            y+=e[3]+2
                             have_layer_header = True
-                        
                         ctx.save()
-                        ctx.translate(cx,cy)
+                        ctx.translate(x+m2pt(current_collumn*cwidth),y)
                         #extra save around map render as it sets up a clip box and doesn't clear it
                         ctx.save()
                         render(lemap, ctx)
@@ -712,13 +789,16 @@ class PDFPrinter:
                         ctx.stroke()
                         ctx.restore()
 
-                        ctx.move_to(cx+m2pt(0.025),cy+m2pt(0.01)/2+ 6)
+                        ctx.move_to(x+legend_map_size[0]+m2pt(current_collumn*cwidth),y)
+                        e=self.write_text(ctx, rule_text, m2pt(cwidth-0.025), 6)
+                        if e[3] > legend_map_size[1]:
+                            y+=e[3]
+                        else:
+                            y+= legend_map_size[1]
+                        y+=2
+                        if y > h:
+                            h = y
+                        
                             
-
-                        ctx.select_font_face("Georgia", cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-                        ctx.set_font_size(10)
-
-                        ctx.show_text(rule_text)
-
-                        cy+=m2pt(0.012)
+        return (w,h)
         
