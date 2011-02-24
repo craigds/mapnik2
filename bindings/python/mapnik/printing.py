@@ -281,8 +281,10 @@ class PDFPrinter:
     
     def write_text(self,ctx,text,box_width=None,size=10, fill_color=(0.0, 0.0, 0.0), alignment=None):
         if HAS_PANGOCAIRO_MODULE:
+            (attr,t,accel) = pango.parse_markup(text)
             pctx = pangocairo.CairoContext(ctx)
             l = pctx.create_layout()
+            l.set_attributes(attr)
             fd = pango.FontDescription("%s %d" % (self.font_name,size))
             l.set_font_description(fd)
             if box_width:
@@ -290,7 +292,7 @@ class PDFPrinter:
             if alignment:
                 l.set_alignment(alignment)
             pctx.update_layout(l)
-            l.set_text(text)
+            l.set_text(t)
             pctx.set_source_rgb(*fill_color)
             pctx.show_layout(l)
             return l.get_pixel_extents()[0]
@@ -681,7 +683,6 @@ class PDFPrinter:
                 
                 # check through the features to find which combinations of styles are active
                 # for each unique combination add a legend entry
-                
                 for f in l.datasource.all_features():
                     if f.geometry:
                         active_rules = []
@@ -706,6 +707,10 @@ class PDFPrinter:
                             continue
                         
                         added_styles[active_rules] = (f,rule_text)
+                    else:
+                        print f
+                        print "adding raster layer to 'syles'"
+                        added_styles[l] = (None,None)
                 
                 legend_items = added_styles.keys()
                 legend_items.sort()
@@ -713,11 +718,6 @@ class PDFPrinter:
                     if True:
                         (f,rule_text) = added_styles[li]
                     
-                        for sym in r.symbols:
-                            try:
-                                sym.avoid_edges=False
-                            except:
-                                print "**** Cant set avoid edges for rule", r.name
                         
                         legend_map_size = (int(m2pt(0.015)),int(m2pt(0.0075)))
                         lemap=Map(legend_map_size[0],legend_map_size[1],srs=m.srs)
@@ -730,6 +730,11 @@ class PDFPrinter:
                             sty=m.find_style(s)
                             lestyle = Style()
                             for r in sty.rules:
+                                for sym in r.symbols:
+                                    try:
+                                        sym.avoid_edges=False
+                                    except:
+                                        print "**** Cant set avoid edges for rule", r.name
                                 if r.min_scale <= m.scale_denominator() and m.scale_denominator() < r.max_scale:
                                     lerule = r
                                     lerule.min_scale = 0
@@ -738,7 +743,10 @@ class PDFPrinter:
                             lemap.append_style(s,lestyle)
 
                         ds = MemoryDatasource()
-                        if f.envelope().width() == 0:
+                        if f is None:
+                            ds=l.datasource
+                            layer_srs = l.srs
+                        elif f.envelope().width() == 0:
                             ds.add_feature(Feature(f.id(),"POINT(0 0)",**f.attributes))
                             lemap.zoom_to_box(Box2d(-1,-1,1,1))
                             layer_srs = m.srs
@@ -752,7 +760,7 @@ class PDFPrinter:
                             lelayer.styles.append(s)
                         lemap.layers.append(lelayer)
                         
-                        if f.envelope().width() != 0:
+                        if f is None or f.envelope().width() != 0:
                             lemap.zoom_all()
                             lemap.zoom(1.1)
                         
@@ -790,15 +798,14 @@ class PDFPrinter:
                         ctx.restore()
 
                         ctx.move_to(x+legend_map_size[0]+m2pt(current_collumn*cwidth),y)
-                        e=self.write_text(ctx, rule_text, m2pt(cwidth-0.025), 6)
-                        if e[3] > legend_map_size[1]:
-                            y+=e[3]
-                        else:
-                            y+= legend_map_size[1]
-                        y+=2
+                        legend_entry_size = legend_map_size[1]
+                        if rule_text:
+                            e=self.write_text(ctx, rule_text, m2pt(cwidth-0.025), 6)
+                            if e[3] > legend_entry_size:
+                                legend_entry_size=e[3]
+   
+                        y+=legend_entry_size+2
                         if y > h:
                             h = y
-                        
-                            
         return (w,h)
         
