@@ -266,6 +266,10 @@ class PDFPrinter:
         
         self.font_name = "DejaVu Sans"
     
+    def finish(self):
+        if self._s:
+            self._s.finish()
+    
     def get_context(self):
         """allow access so that extra 'bits' can be rendered to the page directly"""
         return cairo.Context(self._s)
@@ -555,7 +559,7 @@ class PDFPrinter:
         prev = start
         text = None
         fill=(0,0,0)
-        border_size=6
+        border_size=8
         value = first_percent * (end-start) + start
         label_value = first-div_size
         if self._is_latlon and label_value < -180:
@@ -590,7 +594,7 @@ class PDFPrinter:
                 self._render_box(ctx,m2pt(prev),bar,m2pt(end-prev),border_size,fill_color=fill)
 
     
-    def render_scale(self,m,ctx=None,width=-1):
+    def render_scale(self,m,ctx=None,width=0.05):
         """ m: map to render scale for
         ctx: A cairo context to render the scale to. If this is None (the default) then
             automatically create a context and choose the best location for the scale bar.
@@ -604,30 +608,33 @@ class PDFPrinter:
         # don't render scale if we are lat lon
         # dont report scale if we have warped the aspect ratio
         if self._preserve_aspect and not self._is_latlon:
+            bar_size=8.0
+            box_count=3
             if ctx is None:
                 ctx=cairo.Context(self._s)
                 (tx,ty) = self._get_meta_info_corner((self.map_box.width(),self.map_box.height()),m)
                 ctx.translate(tx,ty)
             
-            (div_size,page_div_size) = self._get_sensible_scalebar_size(m, width/4.0)
-            bar_size=6.0
-            box_count=3
+            (div_size,page_div_size) = self._get_sensible_scalebar_size(m, width/box_count)
+
     
             div_unit = "m"
             if div_size > 1000:
                 div_size /= 1000
                 div_unit = "km"
             
-            text = None
+            text = "0%s" % div_unit
             ctx.save()
+            if width > 0:
+                ctx.translate(m2pt(width-box_count*page_div_size)/2,0)
             for ii in range(box_count):
                 fill=(ii%2,)*3
                 self._render_box(ctx, m2pt(ii*page_div_size), h, m2pt(page_div_size), bar_size, text, fill_color=fill)
                 fill = [1-z for z in fill]
                 text = "%g%s" % ((ii+1)*div_size,div_unit)
-            else:
-                self._render_box(ctx, m2pt(box_count*page_div_size), h, m2pt(page_div_size), bar_size, text, fill_color=(1,1,1), stroke_color=(1,1,1))
-            w = (box_count+1)*page_div_size
+            #else:
+            #    self._render_box(ctx, m2pt(box_count*page_div_size), h, m2pt(page_div_size), bar_size, text, fill_color=(1,1,1), stroke_color=(1,1,1))
+            w = (box_count)*page_div_size
             h += bar_size
             ctx.restore()
 
@@ -643,18 +650,20 @@ class PDFPrinter:
             else:
                 alignment = None
 
-            text_ext=self.write_text(ctx,"SCALE 1:%d" % self.scale,box_width=box_width,size=font_size, alignment=alignment)
+            text_ext=self.write_text(ctx,"Scale 1:%d" % self.scale,box_width=box_width,size=font_size, alignment=alignment)
             h+=text_ext[3]+2
         
         return (w,h)
 
-    def render_legend(self,m, page_break=False, ctx=None, collumns=1,width=None, height=None, item_per_rule=False):
+    def render_legend(self,m, page_break=False, ctx=None, collumns=1,width=None, height=None, item_per_rule=False, attribution={}, legend_item_box_size=(0.015,0.0075)):
         """ m: map to render legend for
         ctx: A cairo context to render the legend to. If this is None (the default) then
             automatically create a context and choose the best location for the legend.
         width: Width of area available to render legend in (in m)
         page_break: move to next page if legen over flows this one
         collumns: number of collumns available in legend box
+        attribution: additional text that will be rendered in gray under the layer name. keyed by layer name
+        legend_item_box_size:  two tuple with width and height of legend item box size in meters
         
         will return the size of the rendered block in pts
         """
@@ -677,9 +686,14 @@ class PDFPrinter:
                 cwidth = None
             current_collumn = 0
             
+            processed_layers = []
             for l in reversed(m.layers):
                 have_layer_header = False
                 added_styles={}
+                layer_title = l.title or l.name
+                if layer_title in processed_layers:
+                    continue
+                processed_layers.append(layer_title)
                 
                 # check through the features to find which combinations of styles are active
                 # for each unique combination add a legend entry
@@ -710,8 +724,6 @@ class PDFPrinter:
                         if not item_per_rule:
                             break
                     else:
-                        print f
-                        print "adding raster layer to 'syles'"
                         added_styles[l] = (None,None)
                 
                 legend_items = added_styles.keys()
@@ -721,7 +733,7 @@ class PDFPrinter:
                         (f,rule_text) = added_styles[li]
                     
                         
-                        legend_map_size = (int(m2pt(0.015)),int(m2pt(0.0075)))
+                        legend_map_size = (int(m2pt(legend_item_box_size[0])),int(m2pt(legend_item_box_size[1])))
                         lemap=Map(legend_map_size[0],legend_map_size[1],srs=m.srs)
                         if m.background:
                             lemap.background = m.background
@@ -799,16 +811,23 @@ class PDFPrinter:
                         ctx.stroke()
                         ctx.restore()
 
-                        ctx.move_to(x+legend_map_size[0]+m2pt(current_collumn*cwidth),y)
+                        ctx.move_to(x+legend_map_size[0]+m2pt(current_collumn*cwidth)+2,y)
                         legend_entry_size = legend_map_size[1]
+                        legend_text_size = 0
                         if not item_per_rule:
-                            rule_text = l.name
+                            rule_text = layer_title
                         if rule_text:
-                            e=self.write_text(ctx, rule_text, m2pt(cwidth-0.025), 6)
-                            if e[3] > legend_entry_size:
-                                legend_entry_size=e[3]
-   
-                        y+=legend_entry_size+2
+                            e=self.write_text(ctx, rule_text, m2pt(cwidth-legend_item_box_size[0]-0.005), 6)
+                            legend_text_size += e[3]
+                            ctx.rel_move_to(0,e[3])
+                        if attribution.has_key(layer_title):
+                            e=self.write_text(ctx, attribution[layer_title], m2pt(cwidth-legend_item_box_size[0]-0.005), 6, fill_color=(0.5,0.5,0.5))
+                            legend_text_size += e[3]
+                        
+                        if legend_text_size > legend_entry_size:
+                            legend_entry_size=legend_text_size
+                        
+                        y+=legend_entry_size +2
                         if y > h:
                             h = y
         return (w,h)
