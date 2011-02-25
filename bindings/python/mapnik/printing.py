@@ -648,7 +648,7 @@ class PDFPrinter:
         
         return (w,h)
 
-    def render_legend(self,m, page_break=False, ctx=None, collumns=1,width=None, height=None):
+    def render_legend(self,m, page_break=False, ctx=None, collumns=1,width=None, height=None, item_per_rule=False):
         """ m: map to render legend for
         ctx: A cairo context to render the legend to. If this is None (the default) then
             automatically create a context and choose the best location for the legend.
@@ -677,7 +677,7 @@ class PDFPrinter:
                 cwidth = None
             current_collumn = 0
             
-            for l in m.layers:
+            for l in reversed(m.layers):
                 have_layer_header = False
                 added_styles={}
                 
@@ -707,6 +707,8 @@ class PDFPrinter:
                             continue
                         
                         added_styles[active_rules] = (f,rule_text)
+                        if not item_per_rule:
+                            break
                     else:
                         print f
                         print "adding raster layer to 'syles'"
@@ -779,7 +781,7 @@ class PDFPrinter:
                                 else:
                                     break
 
-                        if not have_layer_header:
+                        if not have_layer_header and item_per_rule:
                             ctx.move_to(x+m2pt(current_collumn*cwidth),y)
                             e=self.write_text(ctx, l.name, m2pt(cwidth), 8)
                             y+=e[3]+2
@@ -799,6 +801,8 @@ class PDFPrinter:
 
                         ctx.move_to(x+legend_map_size[0]+m2pt(current_collumn*cwidth),y)
                         legend_entry_size = legend_map_size[1]
+                        if not item_per_rule:
+                            rule_text = l.name
                         if rule_text:
                             e=self.write_text(ctx, rule_text, m2pt(cwidth-0.025), 6)
                             if e[3] > legend_entry_size:
