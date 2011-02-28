@@ -1991,8 +1991,6 @@ void map_parser::parse_raster_colorizer(raster_colorizer_ptr const& rc,
 
             if (stop_tag.first == "stop")
             {
-                ensure_attrs(cb, "ColorBand", "value,color,midpoints,max-value,label");
-               
                 // colour is optional.
                 optional<color> stopcolor = get_opt_attr<color>(stop, "color");
                 if (!stopcolor) {
