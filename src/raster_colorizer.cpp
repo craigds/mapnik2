@@ -128,6 +128,10 @@ void raster_colorizer::colorize(raster_ptr const& raster) const {
     
 }
 
+inline float interpolate(float start,float end, float fraction)
+{
+    return fraction * (end - start) + start;
+}
 
 color raster_colorizer::get_color(float value) const {
     int stopCount = stops_.size();
@@ -199,10 +203,10 @@ color raster_colorizer::get_color(float value) const {
             else {
                 float fraction = (value - stopValue) / (nextStopValue - stopValue);
                 
-                float r = (fraction * (float)(nextStopColor.red() - stopColor.red())) + (float)stopColor.red();
-                float g = (fraction * (float)(nextStopColor.green() - stopColor.green())) + (float)stopColor.green();
-                float b = (fraction * (float)(nextStopColor.blue() - stopColor.blue())) + (float)stopColor.blue();
-                float a = (fraction * (float)(nextStopColor.alpha() - stopColor.alpha())) + (float)stopColor.alpha();
+                float r = interpolate(nextStopColor.red(), stopColor.red(),fraction);
+                float g = interpolate(nextStopColor.green(), stopColor.green(),fraction);
+                float b = interpolate(nextStopColor.blue(), stopColor.blue(),fraction);
+                float a = interpolate(nextStopColor.alpha(), stopColor.alpha(),fraction);
                 
                 outputColor.set_red(r);
                 outputColor.set_green(g);
@@ -227,7 +231,7 @@ color raster_colorizer::get_color(float value) const {
         break;
     }
     
-    /*
+
     std::clog << "get_color: " << value << "\n";
     std::clog << "\tstopIdx: " << stopIdx << "\n";
     std::clog << "\tnextStopIdx: " << nextStopIdx << "\n";
@@ -237,8 +241,8 @@ color raster_colorizer::get_color(float value) const {
     std::clog << "\tnextStopColor: " << nextStopColor.to_string() << "\n";
     std::clog << "\tstopMode: " << stopMode.as_string() << "\n";
     std::clog << "\toutputColor: " << outputColor.to_string() << "\n";
-    */
     
+
     return outputColor;
 }
 
