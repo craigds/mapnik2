@@ -106,7 +106,7 @@ public:
     
     //! \brief get the stop color
     //! \return The stop color
-    inline const color& get_color(void) {return color_; };
+    inline const color& get_color(void) const {return color_; };
     
 
     //! \brief Equality operator
@@ -124,7 +124,7 @@ private:
 };
 
 
-typedef std::vector<colorizer_stop *> colorizer_stops;
+typedef std::vector<colorizer_stop> colorizer_stops;
 
 
 //! \brief Class representing the raster colorizer

@@ -24,6 +24,7 @@
 
 #include <mapnik/raster_colorizer.hpp>
 #include <limits>
+#include <arpa/inet.h>
 
 using namespace std;
 using namespace mapnik;
@@ -92,40 +93,32 @@ raster_colorizer::raster_colorizer(colorizer_mode mode/* = COLORIZER_LINEAR*/, c
 
 raster_colorizer::~raster_colorizer()
 {
-    //delete all the stops
-    while(stops_.size() != 0) {
-        delete stops_.back();
-        stops_.pop_back();
-    }
 }
 
 bool raster_colorizer::add_stop(const colorizer_stop & stop) {
     //make sure stops are added in order of value
     if(stops_.size()) {
-        if(stop.get_value() <= stops_.back()->get_value()) {
+        if(stop.get_value() <= stops_.back().get_value()) {
             return false;
         }
     }
     
-    colorizer_stop *s = new colorizer_stop(stop);
-    stops_.push_back(s);
+    stops_.push_back(stop);
 
     return true;
 }
 
-
-void raster_colorizer::colorize(raster_ptr const& raster) const {
-    float *rasterData = reinterpret_cast<float*>(raster->data_.getBytes());
+void raster_colorizer::colorize(raster_ptr const& raster) const
+{
     unsigned *imageData = raster->data_.getData();
     
     int len = raster->data_.width() * raster->data_.height();
     
-    int i;
-    for (i=0; i<len; i++)
+    for (int i=0; i<len; ++i)
     {
-        imageData[i] = get_color(rasterData[i]).rgba();
+        // the GDAL plugin reads single bands as floats
+        imageData[i] = get_color(*reinterpret_cast<float *> (&imageData[i])).rgba();
     }
-    
 }
 
 inline float interpolate(float start,float end, float fraction)
@@ -146,7 +139,7 @@ color raster_colorizer::get_color(float value) const {
     bool foundStopIdx = false;
     
     for(int i=0; i<stopCount; i++) {
-        if(value < stops_[i]->get_value()) {
+        if(value < stops_[i].get_value()) {
             stopIdx = i-1;
             foundStopIdx = true;
             break;
@@ -168,7 +161,7 @@ color raster_colorizer::get_color(float value) const {
         stopMode = default_mode_;
     }
     else {
-        stopMode = stops_[stopIdx]->get_mode();
+        stopMode = stops_[stopIdx].get_mode();
         if(stopMode == COLORIZER_INHERIT) {
             stopMode = default_mode_;
         }
@@ -182,15 +175,15 @@ color raster_colorizer::get_color(float value) const {
     color outputColor = get_default_color();
     if(stopIdx == -1) {
         stopColor = default_color_;
-        nextStopColor = stops_[nextStopIdx]->get_color();
+        nextStopColor = stops_[nextStopIdx].get_color();
         stopValue = value;
-        nextStopValue = stops_[nextStopIdx]->get_value();
+        nextStopValue = stops_[nextStopIdx].get_value();
     }
     else {
-        stopColor = stops_[stopIdx]->get_color();
-        nextStopColor = stops_[nextStopIdx]->get_color();
-        stopValue = stops_[stopIdx]->get_value();
-        nextStopValue = stops_[nextStopIdx]->get_value();
+        stopColor = stops_[stopIdx].get_color();
+        nextStopColor = stops_[nextStopIdx].get_color();
+        stopValue = stops_[stopIdx].get_value();
+        nextStopValue = stops_[nextStopIdx].get_value();
     }
     
     switch(stopMode) {
@@ -231,7 +224,7 @@ color raster_colorizer::get_color(float value) const {
         break;
     }
     
-
+/*
     std::clog << "get_color: " << value << "\n";
     std::clog << "\tstopIdx: " << stopIdx << "\n";
     std::clog << "\tnextStopIdx: " << nextStopIdx << "\n";
@@ -241,7 +234,7 @@ color raster_colorizer::get_color(float value) const {
     std::clog << "\tnextStopColor: " << nextStopColor.to_string() << "\n";
     std::clog << "\tstopMode: " << stopMode.as_string() << "\n";
     std::clog << "\toutputColor: " << outputColor.to_string() << "\n";
-    
+    */
 
     return outputColor;
 }

@@ -384,9 +384,9 @@ private:
         colorizer_stops const &stops = colorizer->get_stops();
         for (i=0; i<stops.size(); i++) {
             ptree &stop_node = col_node.push_back( ptree::value_type("stop", ptree()) )->second;
-            set_attr(stop_node, "value", stops[i]->get_value());
-            set_attr(stop_node, "color", stops[i]->get_color());
-            set_attr(stop_node, "mode", stops[i]->get_mode().as_string());
+            set_attr(stop_node, "value", stops[i].get_value());
+            set_attr(stop_node, "color", stops[i].get_color());
+            set_attr(stop_node, "mode", stops[i].get_mode().as_string());
         }
 
     }
