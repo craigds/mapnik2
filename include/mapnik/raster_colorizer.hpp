@@ -172,7 +172,8 @@ public:
     //! \brief Colorize a raster
     //!
     //! \param[in, out] raster A raster stored in float32 single channel format, which gets colorized in place.
-    void colorize(raster_ptr const& raster) const;
+    //! \param[in] properties belonging to the feature, used to find 'NODATA' information if available
+    void colorize(raster_ptr const& raster,const std::map<std::string,value> &Props) const;
 
 
     //! \brief Perform the translation of input to output
